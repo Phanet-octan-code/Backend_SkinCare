@@ -29,6 +29,15 @@ class DatabaseSeeder extends Seeder
         DB::transaction(function () {
             $this->seedUsers();
             $this->seedSettings();
+
+            // Prevent duplicate seed entries if database already contains records
+            if (Position::count() > 0 && Category::count() > 0 && Product::count() > 0) {
+                if (isset($this->command)) {
+                    $this->command->info('Database is already seeded with full catalog and demonstration records.');
+                }
+                return;
+            }
+
             $categories = $this->seedCategories();
             $positions = $this->seedPositions();
             $this->seedEmployees($positions);
