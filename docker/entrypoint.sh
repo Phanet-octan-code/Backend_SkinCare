@@ -6,6 +6,22 @@ TARGET_PORT="${PORT:-80}"
 echo "[Render Startup] Configuring Nginx to listen on port ${TARGET_PORT}..."
 sed -i "s/listen 80;/listen ${TARGET_PORT};/g" /etc/nginx/http.d/default.conf
 
+# Provide reliable production environment defaults if not set in Render UI
+export APP_NAME="${APP_NAME:-Élixir Botanique}"
+export APP_ENV="${APP_ENV:-production}"
+export APP_DEBUG="${APP_DEBUG:-false}"
+export APP_KEY="${APP_KEY:-base64:2q3DHGrkMArI5CTCycloL6Ir2zRkUZ8OXa4PQEqb+K8=}"
+export DB_CONNECTION="${DB_CONNECTION:-pgsql}"
+export DB_HOST="${DB_HOST:-aws-0-ap-southeast-1.pooler.supabase.com}"
+export DB_PORT="${DB_PORT:-6543}"
+export DB_DATABASE="${DB_DATABASE:-postgres}"
+export DB_USERNAME="${DB_USERNAME:-postgres.rsaxtgzmyzinvyuimthi}"
+export DB_PASSWORD="${DB_PASSWORD:-Skincare2026!}"
+export DB_SSLMODE="${DB_SSLMODE:-require}"
+export SESSION_DRIVER="${SESSION_DRIVER:-file}"
+export CACHE_STORE="${CACHE_STORE:-file}"
+export QUEUE_CONNECTION="${QUEUE_CONNECTION:-database}"
+
 # Ensure storage directories exist with proper write permissions
 mkdir -p /var/www/html/storage/framework/cache/data \
          /var/www/html/storage/framework/sessions \
@@ -35,6 +51,5 @@ php artisan config:cache || true
 php artisan route:cache || true
 php artisan view:cache || true
 
-echo "[Render Startup] Starting PHP-FPM and Nginx via Supervisord..."
+echo "[Render Startup] Starting PHP-FPM and Nginx via Supervisord on port ${TARGET_PORT}..."
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
-
