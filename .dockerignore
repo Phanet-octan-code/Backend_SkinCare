@@ -1,0 +1,17 @@
+/node_modules
+/public/hot
+/public/storage
+/storage/*.key
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/logs/*
+/vendor
+.env
+.env.backup
+.git
+.gitignore
+.phpunit.result.cache
+.editorconfig
+README.md
+
