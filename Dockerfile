@@ -48,6 +48,11 @@ RUN echo "opcache.enable=1" >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.
     echo "post_max_size=25M" >> /usr/local/etc/php/conf.d/uploads.ini && \
     echo "memory_limit=256M" >> /usr/local/etc/php/conf.d/uploads.ini
 
+# Configure PHP-FPM to preserve environment variables and log worker output
+RUN echo "clear_env = no" >> /usr/local/etc/php-fpm.d/zz-docker.conf && \
+    echo "catch_workers_output = yes" >> /usr/local/etc/php-fpm.d/zz-docker.conf && \
+    echo "decorate_workers_output = no" >> /usr/local/etc/php-fpm.d/zz-docker.conf
+
 # Install Composer 2 from official image
 COPY --from=composer:2.8 /usr/bin/composer /usr/bin/composer
 
