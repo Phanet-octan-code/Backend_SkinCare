@@ -3,7 +3,7 @@
 @section('title', 'POS Terminal')
 
 @push('styles')
-<style>
+<style id="pos-terminal-styles">
     /* POS Terminal Workspace Layout */
     .pos-container {
         display: flex;
@@ -11,22 +11,30 @@
         height: calc(100vh - var(--topbar-height) - 48px);
         min-height: 680px;
     }
+    @media (max-width: 991.98px) {
+        .pos-container {
+            height: auto;
+            min-height: auto;
+        }
+    }
     .pos-catalog-panel {
         display: flex;
         flex-direction: column;
         height: 100%;
+        min-height: 0;
         overflow: hidden;
     }
     .pos-product-scroll {
         overflow-y: auto;
         padding-right: 4px;
         flex: 1;
+        min-height: 0;
     }
     .pos-product-scroll::-webkit-scrollbar {
-        width: 4px;
+        width: 5px;
     }
     .pos-product-scroll::-webkit-scrollbar-thumb {
-        background-color: #E2E6DF;
+        background-color: #CBD3C8;
         border-radius: 4px;
     }
     .pos-cart-panel {
@@ -36,18 +44,20 @@
         display: flex;
         flex-direction: column;
         height: 100%;
+        min-height: 0;
         box-shadow: 0 4px 16px rgba(37, 43, 37, 0.04);
     }
     .pos-cart-scroll {
         flex: 1;
+        min-height: 0;
         overflow-y: auto;
         padding: 12px 16px;
     }
     .pos-cart-scroll::-webkit-scrollbar {
-        width: 4px;
+        width: 5px;
     }
     .pos-cart-scroll::-webkit-scrollbar-thumb {
-        background-color: #E2E6DF;
+        background-color: #CBD3C8;
         border-radius: 4px;
     }
     .pos-product-card {
@@ -56,38 +66,63 @@
         border-radius: var(--radius-md);
         padding: 12px;
         cursor: pointer;
-        transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease, border-color 0.15s ease;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
         height: 100%;
         position: relative;
+        user-select: none;
     }
     .pos-product-card:hover:not(.out-of-stock) {
         border-color: var(--primary);
-        box-shadow: 0 4px 12px rgba(113, 133, 107, 0.12);
+        box-shadow: 0 6px 18px rgba(113, 133, 107, 0.18);
         transform: translateY(-2px);
     }
+    .pos-product-card:active:not(.out-of-stock) {
+        transform: scale(0.98);
+    }
     .pos-product-card.out-of-stock {
-        opacity: 0.6;
+        opacity: 0.55;
         cursor: not-allowed;
         background-color: #FAFAFA;
+        filter: grayscale(0.2);
     }
     .pos-thumb-box {
         width: 100%;
-        height: 100px;
+        height: 110px;
         border-radius: 8px;
         overflow: hidden;
-        background-color: var(--primary-subtle);
+        background-color: #F8F9F7;
+        border: 1px solid #ECEEEA;
         display: flex;
         align-items: center;
         justify-content: center;
         margin-bottom: 10px;
+        position: relative;
     }
     .pos-thumb-img {
         width: 100%;
         height: 100%;
-        object-fit: cover;
+        object-fit: contain;
+        padding: 6px;
+        transition: transform 0.25s ease;
+    }
+    .pos-product-card:hover:not(.out-of-stock) .pos-thumb-img {
+        transform: scale(1.08);
+    }
+    .pos-card-add-overlay {
+        position: absolute;
+        bottom: 6px;
+        right: 6px;
+        opacity: 0;
+        transform: scale(0.85);
+        transition: all 0.18s ease;
+        z-index: 2;
+    }
+    .pos-product-card:hover:not(.out-of-stock) .pos-card-add-overlay {
+        opacity: 1;
+        transform: scale(1);
     }
     .pos-cat-pill {
         font-size: 0.76rem;
@@ -100,6 +135,9 @@
         color: var(--text-muted);
         white-space: nowrap;
         transition: all 0.15s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
     }
     .pos-cat-pill:hover {
         border-color: var(--primary);
@@ -107,9 +145,10 @@
         background-color: var(--primary-subtle);
     }
     .pos-cat-pill.active {
-        background-color: var(--primary);
-        border-color: var(--primary);
-        color: #FFFFFF;
+        background-color: var(--primary) !important;
+        border-color: var(--primary) !important;
+        color: #FFFFFF !important;
+        box-shadow: 0 2px 8px rgba(113, 133, 107, 0.32);
     }
     .cart-item-row {
         background: #FAFCFA;
@@ -117,10 +156,11 @@
         border-radius: 8px;
         padding: 10px 12px;
         margin-bottom: 8px;
-        transition: border-color 0.12s ease;
+        transition: border-color 0.12s ease, background 0.12s ease;
     }
     .cart-item-row:hover {
         border-color: #CBD3C8;
+        background: #FFFFFF;
     }
     .qty-btn {
         width: 26px;
@@ -160,7 +200,7 @@
     }
     .quick-cash-chip {
         font-size: 0.8rem;
-        padding: 5px 10px;
+        padding: 6px 12px;
         border-radius: 6px;
         border: 1px solid var(--border-color);
         background: #FFFFFF;
@@ -171,6 +211,23 @@
     .quick-cash-chip:hover {
         background: #F0F3ED;
         border-color: var(--primary);
+        color: var(--primary-hover);
+    }
+    .pos-cat-pill-scroll {
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+    .pos-cat-pill-scroll::-webkit-scrollbar {
+        display: none;
+    }
+    @media (max-width: 575.98px) {
+        .pos-product-card {
+            padding: 8px;
+        }
+        .pos-thumb-box {
+            height: 85px;
+            margin-bottom: 6px;
+        }
     }
 </style>
 @endpush
@@ -180,23 +237,23 @@
 <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2 mb-3">
     <div class="d-flex align-items-center gap-3">
         <h4 class="fw-bold mb-0 text-dark" style="letter-spacing: -0.4px;">
-            <i class="bi bi-cart3 text-primary me-2"></i>POS Terminal
+            <i class="bi bi-cart3 text-primary me-2"></i>{{ __('messages.pos_terminal') }}
         </h4>
         <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 small d-inline-flex align-items-center gap-1">
             <span class="spinner-grow spinner-grow-sm text-success" style="width: 7px; height: 7px;" role="status"></span>
-            <span>Register Ready &bull; HID Scanner Active</span>
+            <span>{{ __('messages.pos_register_ready') }}</span>
         </span>
     </div>
 
     <div class="d-flex align-items-center gap-2">
         <span class="text-muted small">
-            Cashier: <strong>{{ auth()->user()->name }}</strong>
+            {{ __('messages.cashier') }}: <strong>{{ auth()->user()->name }}</strong>
         </span>
         <a href="{{ route('sales.index') }}" class="btn btn-sm btn-skincare-outline py-1 px-2" style="font-size: 0.8rem;">
-            <i class="bi bi-receipt me-1"></i> Sales Ledger
+            <i class="bi bi-receipt me-1"></i> {{ __('messages.sales_ledger') }}
         </a>
         <a href="{{ route('dashboard') }}" class="btn btn-sm btn-skincare-outline py-1 px-2" style="font-size: 0.8rem;">
-            <i class="bi bi-speedometer2 me-1"></i> Dashboard
+            <i class="bi bi-speedometer2 me-1"></i> {{ __('messages.dashboard') }}
         </a>
     </div>
 </div>
@@ -217,7 +274,7 @@
                                 <input type="text" 
                                        id="barcodeScannerInput" 
                                        class="form-control border-start-0" 
-                                       placeholder="Scan barcode or type product name... (Press Enter to scan)" 
+                                       placeholder="{{ __('messages.scan_barcode_placeholder') }}" 
                                        autocomplete="off" 
                                        autofocus>
                                 <button type="button" class="btn btn-skincare-outline" id="clearSearchBtn" title="Clear search">
@@ -227,16 +284,16 @@
                         </div>
                         <div class="col-12 col-md-4 text-end">
                             <span class="badge bg-light text-muted border py-2 px-3 w-100 text-truncate" id="productCountBadge" style="font-size: 0.78rem;">
-                                Showing {{ $products->count() }} formulas
+                                {{ __('messages.showing_formulas', ['count' => $products->count()]) }}
                             </span>
                         </div>
                     </div>
 
                     <!-- Category Pills Filter -->
-                    <div class="d-flex align-items-center gap-1 overflow-x-auto pt-2 mt-2 border-top">
-                        <button type="button" class="pos-cat-pill active" data-category="all">All Items</button>
+                    <div class="d-flex align-items-center gap-1 overflow-x-auto pt-2 mt-2 border-top pos-cat-pill-scroll">
+                        <button type="button" class="pos-cat-pill active" data-category="all">{{ __('messages.all_items') }}</button>
                         @foreach($categories as $cat)
-                        <button type="button" class="pos-cat-pill" data-category="{{ $cat->id }}">{{ $cat->name }}</button>
+                        <button type="button" class="pos-cat-pill" data-category="{{ $cat->id }}">{{ $cat->localized_name }}</button>
                         @endforeach
                     </div>
                 </div>
@@ -244,12 +301,74 @@
                 <!-- Product Catalog Grid Scroll Area -->
                 <div class="pos-product-scroll">
                     <div class="row g-2" id="posProductGrid">
-                        <!-- Populated by JavaScript -->
+                        @forelse($catalogPayload as $p)
+                        @php
+                            $isOutOfStock = $p['qty'] <= 0;
+                            $stockBadgeClass = $isOutOfStock 
+                                ? 'bg-danger-subtle text-danger border border-danger-subtle' 
+                                : ($p['is_low_stock'] ? 'bg-warning-subtle text-warning-emphasis border border-warning-subtle' : 'bg-success-subtle text-success border border-success-subtle');
+                            $stockText = $isOutOfStock ? __('messages.out_of_stock') : $p['qty'] . ' ' . __('messages.units');
+                            $imgRaw = $p['image'] ?? null;
+                            if ($imgRaw) {
+                                $imgUrl = (str_starts_with($imgRaw, 'http://') || str_starts_with($imgRaw, 'https://')) ? $imgRaw : (str_starts_with($imgRaw, '/') ? $imgRaw : '/' . $imgRaw);
+                            } else {
+                                $imgUrl = '/images/products/skincare_bottle.jpg';
+                            }
+                        @endphp
+                        <div class="col-6 col-sm-4 col-md-4 col-xl-3 pos-grid-card-wrapper" data-category="{{ $p['category_id'] }}" data-product-id="{{ $p['id'] }}">
+                            <div class="pos-product-card {{ $isOutOfStock ? 'out-of-stock' : '' }}" 
+                                 onclick="window.posAddToCart ? window.posAddToCart({{ $p['id'] }}) : null"
+                                 title="{{ $isOutOfStock ? __('messages.out_of_stock') : __('messages.add_to_ticket') . ' ' . $p['name'] }}"
+                                 role="button"
+                                 tabindex="0">
+                                @if(!empty($p['promo_text']))
+                                <span class="badge bg-danger position-absolute top-0 end-0 m-2 shadow-sm" style="font-size: 0.65rem; z-index: 2;">{{ $p['promo_text'] }}</span>
+                                @endif
+                                <div>
+                                    <div class="pos-thumb-box position-relative">
+                                        <img src="{{ $imgUrl }}" 
+                                             alt="{{ $p['name'] }}" 
+                                             class="pos-thumb-img" 
+                                             loading="lazy"
+                                             onerror="this.onerror=null;this.src='/images/products/skincare_bottle.jpg';">
+                                        @if(!$isOutOfStock)
+                                        <div class="pos-card-add-overlay">
+                                            <span class="btn btn-sm btn-light rounded-circle shadow-sm p-1 d-inline-flex align-items-center justify-content-center" style="width: 28px; height: 28px;">
+                                                <i class="bi bi-plus text-primary fw-bold fs-6"></i>
+                                            </span>
+                                        </div>
+                                        @endif
+                                    </div>
+                                    <span class="badge bg-light text-muted border mb-1" style="font-size: 0.65rem;">{{ $p['category_name'] ?? __('messages.general') }}</span>
+                                    <div class="fw-bold text-dark text-truncate" style="font-size: 0.83rem;" title="{{ $p['name'] }}">{{ $p['name'] }}</div>
+                                    <div class="text-muted font-monospace" style="font-size: 0.7rem;">
+                                        <i class="bi bi-upc me-1 text-muted" style="font-size: 0.65rem;"></i>{{ $p['barcode'] ?? 'N/A' }}
+                                    </div>
+                                </div>
+
+                                <div class="d-flex align-items-center justify-content-between mt-2 pt-2 border-top">
+                                    <span class="fw-bold text-dark fs-6 font-monospace">${{ number_format($p['price'], 2) }}</span>
+                                    <span class="badge {{ $stockBadgeClass }}" style="font-size: 0.68rem;">{{ $stockText }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        @empty
+                        <div class="col-12 p-5 text-center text-muted">
+                            <i class="bi bi-box-seam fs-1 mb-2 d-block"></i>
+                            <h6 class="fw-bold text-dark">{{ __('messages.no_formulas_available') }}</h6>
+                            <p class="text-muted small">{{ __('messages.verify_catalog_inventory') }}</p>
+                        </div>
+                        @endforelse
                     </div>
                     <div id="noProductsFound" class="d-none p-5 text-center">
-                        <i class="bi bi-search text-muted fs-1 mb-2 d-block"></i>
-                        <h6 class="fw-bold text-dark">No matching skincare formulas</h6>
-                        <p class="text-muted small">Try adjusting your search query, scanning a barcode, or selecting another category.</p>
+                        <div class="mb-3">
+                            <i class="bi bi-search text-muted fs-1 d-inline-block p-3 rounded-circle" style="background-color: var(--primary-subtle); color: var(--primary) !important;"></i>
+                        </div>
+                        <h6 class="fw-bold text-dark">{{ __('messages.no_matching_formulas') }}</h6>
+                        <p class="text-muted small mb-3">{{ __('messages.try_adjusting_search') }}</p>
+                        <button type="button" class="btn btn-sm btn-skincare-primary px-3" onclick="window.posResetFilters ? window.posResetFilters() : null">
+                            <i class="bi bi-arrow-clockwise me-1"></i> {{ __('messages.reset_filters') }}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -262,25 +381,25 @@
                 <div class="p-3 border-bottom flex-shrink-0">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <div class="d-flex align-items-center gap-2">
-                            <h6 class="fw-bold text-dark mb-0 fs-6">Current Ticket</h6>
-                            <span class="badge bg-primary text-white rounded-pill px-2" id="ticketCountBadge">0 items</span>
+                            <h6 class="fw-bold text-dark mb-0 fs-6">{{ __('messages.current_ticket') }}</h6>
+                            <span class="badge bg-primary text-white rounded-pill px-2" id="ticketCountBadge">0 {{ __('messages.selected') }}</span>
                         </div>
                         <button type="button" class="btn btn-xs btn-outline-danger py-0 px-2" id="clearCartBtn" style="font-size: 0.74rem;">
-                            <i class="bi bi-trash3 me-1"></i> Clear Cart
+                            <i class="bi bi-trash3 me-1"></i> {{ __('messages.clear_cart') }}
                         </button>
                     </div>
 
                     <!-- Customer Lookup / Guest Selector -->
                     <div class="p-2 border rounded-3 bg-light">
                         <div class="d-flex align-items-center justify-content-between mb-1">
-                            <span class="text-muted small fw-semibold" style="font-size: 0.72rem;">Customer / Loyalty Tier</span>
+                            <span class="text-muted small fw-semibold" style="font-size: 0.72rem;">{{ __('messages.customer_loyalty') }}</span>
                             <button type="button" class="btn btn-link p-0 text-decoration-none small text-primary fw-semibold" data-bs-toggle="modal" data-bs-target="#newCustomerModal" style="font-size: 0.72rem;">
-                                + New Client
+                                {{ __('messages.new_client') }}
                             </button>
                         </div>
                         <div class="d-flex align-items-center gap-2">
                             <select id="customerSelect" class="form-select form-select-sm">
-                                <option value="" data-tier="Guest" data-discount="0">Walk-in Guest (No discount)</option>
+                                <option value="" data-tier="Guest" data-discount="0">{{ __('messages.walk_in_guest') }}</option>
                                 @foreach($customers as $c)
                                 <option value="{{ $c->id }}" data-tier="{{ $c->membership_level ?? 'Standard' }}" data-discount="{{ $c->membership_discount_percentage }}">
                                     {{ $c->name }} ({{ $c->membership_level }} — {{ (int) $c->membership_discount_percentage }}% off)
@@ -289,7 +408,7 @@
                             </select>
                         </div>
                         <div id="customerTierBadgeContainer" class="d-flex align-items-center justify-content-between mt-1 pt-1 border-top" style="display: none !important;">
-                            <span class="text-muted" style="font-size: 0.72rem;">VIP Benefit:</span>
+                            <span class="text-muted" style="font-size: 0.72rem;">{{ __('messages.vip_benefit') }}:</span>
                             <span class="badge bg-success-subtle text-success border border-success-subtle" id="customerBenefitBadge" style="font-size: 0.68rem;">15% Off Total</span>
                         </div>
                     </div>
@@ -300,27 +419,27 @@
                     <!-- Populated dynamically via JS -->
                     <div class="text-center py-5 text-muted" id="emptyCartPlaceholder">
                         <i class="bi bi-cart-x fs-1 d-block mb-2 text-muted" style="opacity: 0.5;"></i>
-                        <div class="fw-semibold text-dark small">Ticket is empty</div>
-                        <small class="text-muted">Scan a barcode or click catalog formulas to add them.</small>
+                        <div class="fw-semibold text-dark small">{{ __('messages.ticket_empty') }}</div>
+                        <small class="text-muted">{{ __('messages.ticket_empty_hint') }}</small>
                     </div>
                 </div>
 
                 <!-- Cart Financial Summary & Checkout Trigger -->
                 <div class="p-3 border-top bg-light flex-shrink-0" style="border-radius: 0 0 var(--radius-md) var(--radius-md);">
                     <div class="d-flex justify-content-between small text-muted mb-1">
-                        <span>Subtotal:</span>
+                        <span>{{ __('messages.subtotal') }}:</span>
                         <span class="font-monospace fw-semibold text-dark" id="summarySubtotal">$0.00</span>
                     </div>
                     <div class="d-flex justify-content-between small text-danger mb-1" id="discountRow" style="display: none !important;">
-                        <span>Discount:</span>
+                        <span>{{ __('messages.discounts') }}:</span>
                         <span class="font-monospace fw-semibold" id="summaryDiscount">-$0.00</span>
                     </div>
                     <div class="d-flex justify-content-between small text-muted mb-2">
-                        <span>Retail Tax (5%):</span>
+                        <span>{{ __('messages.tax') }}:</span>
                         <span class="font-monospace fw-semibold text-dark" id="summaryTax">$0.00</span>
                     </div>
                     <div class="d-flex justify-content-between align-items-center pt-2 border-top mb-3">
-                        <span class="fw-bold text-dark fs-6">Final Total:</span>
+                        <span class="fw-bold text-dark fs-6">{{ __('messages.final_total') }}:</span>
                         <span class="fw-bold text-dark fs-4 font-monospace" id="summaryFinalTotal">$0.00</span>
                     </div>
 
@@ -330,11 +449,30 @@
                             class="btn btn-skincare-primary w-100 py-2 fs-6 fw-bold d-flex align-items-center justify-content-center gap-2"
                             disabled>
                         <i class="bi bi-credit-card-2-front"></i>
-                        <span>Checkout (<span id="btnPayAmount">$0.00</span>)</span>
+                        <span>{{ __('messages.checkout') }} (<span id="btnPayAmount">$0.00</span>)</span>
                     </button>
                 </div>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Mobile Sticky Ticket & Checkout Bar (Visible only on < 992px) -->
+<div id="posMobileTicketBar" class="d-lg-none position-fixed bottom-0 start-0 end-0 p-2 bg-white border-top shadow-lg" style="z-index: 1025; display: none;">
+    <div class="d-flex align-items-center justify-content-between gap-2 px-2">
+        <div class="d-flex align-items-center gap-2">
+            <span class="avatar-circle" style="width: 36px; height: 36px; background-color: var(--primary); color: #fff;">
+                <i class="bi bi-cart3 fs-6"></i>
+            </span>
+            <div>
+                <div class="fw-bold text-dark font-monospace" id="mobileTicketTotal" style="font-size: 1rem;">$0.00</div>
+                <div class="text-muted" style="font-size: 0.72rem;" id="mobileTicketItems">0 {{ __('messages.selected') }}</div>
+            </div>
+        </div>
+        <button type="button" class="btn btn-sm btn-skincare-primary px-3 py-2 fw-semibold d-flex align-items-center gap-1 shadow-sm" onclick="document.querySelector('.pos-cart-panel').scrollIntoView({behavior: 'smooth'})">
+            <span>{{ __('messages.current_ticket') }} & {{ __('messages.checkout') }}</span>
+            <i class="bi bi-arrow-down-short fs-5"></i>
+        </button>
     </div>
 </div>
 
@@ -348,8 +486,8 @@
                         <i class="bi bi-receipt"></i>
                     </span>
                     <div>
-                        <h6 class="modal-title fw-bold text-dark mb-0" id="checkoutModalLabel">Complete Checkout</h6>
-                        <small class="text-muted" style="font-size: 0.72rem;">Select payment method and verify tender</small>
+                        <h6 class="modal-title fw-bold text-dark mb-0" id="checkoutModalLabel">{{ __('messages.complete_checkout') }}</h6>
+                        <small class="text-muted" style="font-size: 0.72rem;">{{ __('messages.select_payment_method') }}</small>
                     </div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -358,30 +496,30 @@
             <div class="modal-body p-4">
                 <!-- Total Display Banner -->
                 <div class="p-3 bg-light border rounded-3 text-center mb-3">
-                    <small class="text-muted d-block text-uppercase fw-semibold" style="font-size: 0.72rem; letter-spacing: 0.5px;">Amount to Pay</small>
+                    <small class="text-muted d-block text-uppercase fw-semibold" style="font-size: 0.72rem; letter-spacing: 0.5px;">{{ __('messages.amount_to_pay') }}</small>
                     <div class="fs-2 fw-bold text-dark font-monospace" id="modalFinalTotal">$0.00</div>
-                    <small class="text-muted" id="modalClientSummary">Client: Walk-in Guest</small>
+                    <small class="text-muted" id="modalClientSummary">{{ __('messages.client_label') }}: {{ __('messages.walk_in_guest') }}</small>
                 </div>
 
                 <!-- Payment Method Selector Tiles -->
-                <label class="form-label small fw-semibold text-dark mb-2">Select Payment Method</label>
+                <label class="form-label small fw-semibold text-dark mb-2">{{ __('messages.select_payment_method') }}</label>
                 <div class="row g-2 mb-3">
                     <div class="col-4">
                         <div class="pay-btn-tile active" data-method="cash" id="payMethodCash">
                             <i class="bi bi-cash-stack fs-4 d-block mb-1"></i>
-                            <span class="fw-bold" style="font-size: 0.8rem;">Cash</span>
+                            <span class="fw-bold" style="font-size: 0.8rem;">{{ __('messages.cash') }}</span>
                         </div>
                     </div>
                     <div class="col-4">
                         <div class="pay-btn-tile" data-method="card" id="payMethodCard">
                             <i class="bi bi-credit-card fs-4 d-block mb-1"></i>
-                            <span class="fw-bold" style="font-size: 0.8rem;">Card</span>
+                            <span class="fw-bold" style="font-size: 0.8rem;">{{ __('messages.card') }}</span>
                         </div>
                     </div>
                     <div class="col-4">
                         <div class="pay-btn-tile" data-method="qr" id="payMethodQr">
                             <i class="bi bi-qr-code fs-4 d-block mb-1"></i>
-                            <span class="fw-bold" style="font-size: 0.8rem;">QR / QRIS</span>
+                            <span class="fw-bold" style="font-size: 0.8rem;">{{ __('messages.qr') }}</span>
                         </div>
                     </div>
                 </div>
@@ -390,7 +528,7 @@
                 <!-- 1. Cash Pane: Amount Received & Change Due -->
                 <div id="cashPaymentPane">
                     <div class="mb-3">
-                        <label for="cashReceivedInput" class="form-label small fw-semibold text-dark">Cash Tendered ($)</label>
+                        <label for="cashReceivedInput" class="form-label small fw-semibold text-dark">{{ __('messages.cash_tendered') }}</label>
                         <div class="input-group">
                             <span class="input-group-text bg-white">$</span>
                             <input type="number" 
@@ -409,7 +547,7 @@
 
                     <!-- Change Due Display -->
                     <div class="p-3 border rounded-3 bg-white d-flex align-items-center justify-content-between mb-3">
-                        <span class="fw-semibold text-dark">Change Due:</span>
+                        <span class="fw-semibold text-dark">{{ __('messages.change_due') }}:</span>
                         <span class="fs-4 fw-bold font-monospace text-success" id="cashChangeDue">$0.00</span>
                     </div>
                 </div>
@@ -418,8 +556,8 @@
                 <div id="cardPaymentPane" class="d-none">
                     <div class="p-3 border rounded-3 bg-light text-center mb-3">
                         <i class="bi bi-credit-card-2-front text-primary fs-1 d-block mb-2"></i>
-                        <div class="fw-bold text-dark">EMV / Contactless Card Terminal Ready</div>
-                        <small class="text-muted">Swipe, insert chip, or tap contactless card on terminal #01.</small>
+                        <div class="fw-bold text-dark">{{ __('messages.card_terminal_ready') }}</div>
+                        <small class="text-muted">{{ __('messages.card_terminal_desc') }}</small>
                     </div>
                 </div>
 
@@ -431,7 +569,7 @@
                             <i class="bi bi-qr-code text-dark" style="font-size: 7rem; line-height: 1;"></i>
                         </div>
                         <div class="fw-bold text-dark font-monospace mt-2" id="qrDisplayTotal">$0.00</div>
-                        <small class="text-muted" style="font-size: 0.7rem;">Scan with Mobile Banking or QRIS</small>
+                        <small class="text-muted" style="font-size: 0.7rem;">{{ __('messages.qr_payment_prompt') }}</small>
                     </div>
                 </div>
 
@@ -440,19 +578,19 @@
                     <div class="accordion-item bg-transparent">
                         <h2 class="accordion-header">
                             <button class="accordion-button collapsed py-2 px-0 bg-transparent small text-muted" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOptions">
-                                <i class="bi bi-sliders me-1"></i> Special Discount & Order Notes
+                                <i class="bi bi-sliders me-1"></i> {{ __('messages.special_discount_notes') }}
                             </button>
                         </h2>
                         <div id="collapseOptions" class="accordion-collapse collapse" data-bs-parent="#checkoutOptionsAccordion">
                             <div class="accordion-body px-0 pt-2 pb-0">
                                 <div class="row g-2">
                                     <div class="col-6">
-                                        <label for="manualDiscountInput" class="form-label small text-muted">Special Promo (%)</label>
+                                        <label for="manualDiscountInput" class="form-label small text-muted">{{ __('messages.special_promo_percent') }}</label>
                                         <input type="number" id="manualDiscountInput" class="form-control form-control-sm" min="0" max="100" step="1" placeholder="0%">
                                     </div>
                                     <div class="col-6">
-                                        <label for="checkoutNotesInput" class="form-label small text-muted">Notes</label>
-                                        <input type="text" id="checkoutNotesInput" class="form-control form-control-sm" placeholder="Optional notes">
+                                        <label for="checkoutNotesInput" class="form-label small text-muted">{{ __('messages.notes') }}</label>
+                                        <input type="text" id="checkoutNotesInput" class="form-control form-control-sm" placeholder="{{ __('messages.optional_notes') }}">
                                     </div>
                                 </div>
                             </div>
@@ -462,11 +600,11 @@
             </div>
 
             <div class="modal-footer border-top py-2 bg-light">
-                <button type="button" class="btn btn-sm btn-skincare-outline" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-sm btn-skincare-outline" data-bs-dismiss="modal">{{ __('messages.cancel') }}</button>
                 <button type="button" class="btn btn-skincare-primary px-4 fw-bold" id="confirmPaymentBtn">
                     <span id="confirmBtnSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status"></span>
                     <i class="bi bi-check2-circle me-1" id="confirmBtnIcon"></i>
-                    <span id="confirmBtnText">Complete Sale</span>
+                    <span id="confirmBtnText">{{ __('messages.complete_sale') }}</span>
                 </button>
             </div>
         </div>
@@ -480,7 +618,7 @@
             <div class="modal-header border-bottom py-3 bg-light">
                 <h6 class="modal-title fw-bold text-dark mb-0 d-flex align-items-center gap-2" id="receiptModalLabel">
                     <i class="bi bi-check-circle-fill text-success"></i>
-                    <span>Checkout Completed</span>
+                    <span>{{ __('messages.checkout_completed') }}</span>
                 </h6>
             </div>
             <div class="modal-body p-4 text-center">
@@ -492,25 +630,25 @@
 
                 <div class="p-3 bg-light border rounded-3 text-start mb-3 small">
                     <div class="d-flex justify-content-between mb-1">
-                        <span class="text-muted">Total Paid:</span>
+                        <span class="text-muted">{{ __('messages.total_paid') }}:</span>
                         <span class="fw-bold text-dark font-monospace" id="receiptTotal">$0.00</span>
                     </div>
                     <div class="d-flex justify-content-between mb-1">
-                        <span class="text-muted">Payment Type:</span>
+                        <span class="text-muted">{{ __('messages.payment_type') }}:</span>
                         <span class="fw-bold text-dark text-uppercase" id="receiptPaymentType">CASH</span>
                     </div>
                     <div class="d-flex justify-content-between text-success fw-bold" id="receiptChangeContainer">
-                        <span>Change Returned:</span>
+                        <span>{{ __('messages.change_returned') }}:</span>
                         <span class="font-monospace" id="receiptChange">$0.00</span>
                     </div>
                 </div>
 
                 <div class="d-flex flex-column gap-2">
                     <a href="#" target="_blank" id="printReceiptBtn" class="btn btn-skincare-primary w-100 py-2 fw-semibold">
-                        <i class="bi bi-printer me-1"></i> Print Thermal Receipt
+                        <i class="bi bi-printer me-1"></i> {{ __('messages.print_thermal_receipt') }}
                     </a>
                     <button type="button" class="btn btn-skincare-outline w-100 py-2 fw-semibold" id="startNewSaleBtn">
-                        <i class="bi bi-plus-circle me-1"></i> Start New Sale
+                        <i class="bi bi-plus-circle me-1"></i> {{ __('messages.start_new_sale') }}
                     </button>
                 </div>
             </div>
@@ -524,26 +662,26 @@
         <div class="modal-content border-0 shadow">
             <div class="modal-header border-bottom py-3">
                 <h6 class="modal-title fw-bold text-dark mb-0">
-                    <i class="bi bi-person-plus text-primary me-1"></i>Enroll New Client
+                    <i class="bi bi-person-plus text-primary me-1"></i>{{ __('messages.enroll_new_client') }}
                 </h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="quickCustomerForm">
                 <div class="modal-body py-3">
                     <div class="mb-2">
-                        <label class="form-label small fw-semibold text-dark mb-1">Full Name *</label>
+                        <label class="form-label small fw-semibold text-dark mb-1">{{ __('messages.full_name') }} *</label>
                         <input type="text" id="newCustName" class="form-control form-control-sm" required placeholder="e.g. Elena Rostova">
                     </div>
                     <div class="mb-2">
-                        <label class="form-label small fw-semibold text-dark mb-1">Phone Number</label>
+                        <label class="form-label small fw-semibold text-dark mb-1">{{ __('messages.phone_number') }}</label>
                         <input type="text" id="newCustPhone" class="form-control form-control-sm" placeholder="e.g. +855 12 345 678">
                     </div>
                     <div class="mb-2">
-                        <label class="form-label small fw-semibold text-dark mb-1">Email</label>
+                        <label class="form-label small fw-semibold text-dark mb-1">{{ __('messages.email') }}</label>
                         <input type="email" id="newCustEmail" class="form-control form-control-sm" placeholder="e.g. client@skincare.com">
                     </div>
                     <div class="mb-2">
-                        <label class="form-label small fw-semibold text-dark mb-1">Loyalty Tier *</label>
+                        <label class="form-label small fw-semibold text-dark mb-1">{{ __('messages.loyalty_tier') }} *</label>
                         <select id="newCustTier" class="form-select form-select-sm" required>
                             <option value="Standard">Standard (0% discount)</option>
                             <option value="Silver">Silver VIP (5% discount)</option>
@@ -553,8 +691,8 @@
                     </div>
                 </div>
                 <div class="modal-footer border-top py-2 bg-light">
-                    <button type="button" class="btn btn-sm btn-skincare-outline" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-sm btn-skincare-primary" id="saveQuickCustBtn">Enroll & Attach</button>
+                    <button type="button" class="btn btn-sm btn-skincare-outline" data-bs-dismiss="modal">{{ __('messages.cancel') }}</button>
+                    <button type="submit" class="btn btn-sm btn-skincare-primary" id="saveQuickCustBtn">{{ __('messages.enroll_and_attach') }}</button>
                 </div>
             </form>
         </div>
@@ -564,12 +702,41 @@
 
 @push('scripts')
 <script>
+(function () {
     // ── DATA SOURCES LOADED FROM SERVER ──
     const productCatalog = @json($catalogPayload);
     const taxRatePercent = {{ $taxRate }};
     const checkoutRoute = "{{ route('pos.checkout') }}";
     const customerStoreRoute = "{{ route('customers.store') }}";
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+
+    // Multilingual Localization Strings Dictionary
+    const posI18n = {
+        showingFormulas: function (count) {
+            return "{{ __('messages.showing_formulas', ['count' => ':COUNT:']) }}".replace(':COUNT:', count);
+        },
+        itemsCount: function (count) {
+            return "{{ __('messages.items_selected', ['count' => ':COUNT:']) }}".replace(':COUNT:', count);
+        },
+        outOfStock: "{{ __('messages.out_of_stock') }}",
+        inStock: "{{ __('messages.units_in_stock') }}",
+        ticketEmpty: "{{ __('messages.ticket_empty') }}",
+        ticketEmptyHint: "{{ __('messages.ticket_empty_hint') }}",
+        walkInGuest: "{{ __('messages.walk_in_guest') }}",
+        clientPrefix: "{{ __('messages.client_label') }}: ",
+        addToTicket: "{{ __('messages.add_to_ticket') }}",
+        units: "{{ __('messages.units') }}",
+        unitPrice: "{{ __('messages.unit_price') }}",
+        exact: "{{ __('messages.exact') }}",
+        outOfStockMsg: function (name) {
+            return `[${name}] {{ __('messages.out_of_stock') }}`;
+        },
+        limitExceededMsg: function (qty, name) {
+            return "{{ __('messages.stock_limit_reached', ['qty' => ':QTY:', 'name' => ':NAME:']) }}"
+                .replace(':QTY:', qty)
+                .replace(':NAME:', name);
+        }
+    };
 
     // ── POS ACTIVE REGISTER STATE ──
     let cart = []; // Array of: { product: Object, qty: int }
@@ -584,18 +751,30 @@
     let receiptModalInstance = null;
     let newCustomerModalInstance = null;
 
-    document.addEventListener('DOMContentLoaded', function () {
-        checkoutModalInstance = new bootstrap.Modal(document.getElementById('checkoutModal'));
-        receiptModalInstance = new bootstrap.Modal(document.getElementById('receiptModal'));
-        newCustomerModalInstance = new bootstrap.Modal(document.getElementById('newCustomerModal'));
+    function initPosTerminal() {
+        const checkoutModalEl = document.getElementById('checkoutModal');
+        const receiptModalEl = document.getElementById('receiptModal');
+        const newCustomerModalEl = document.getElementById('newCustomerModal');
+
+        if (checkoutModalEl && window.bootstrap) {
+            checkoutModalInstance = bootstrap.Modal.getInstance(checkoutModalEl) || new bootstrap.Modal(checkoutModalEl);
+        }
+        if (receiptModalEl && window.bootstrap) {
+            receiptModalInstance = bootstrap.Modal.getInstance(receiptModalEl) || new bootstrap.Modal(receiptModalEl);
+        }
+        if (newCustomerModalEl && window.bootstrap) {
+            newCustomerModalInstance = bootstrap.Modal.getInstance(newCustomerModalEl) || new bootstrap.Modal(newCustomerModalEl);
+        }
 
         renderProductGrid();
         setupEventListeners();
-    });
+    }
 
     // ── EVENT LISTENERS & SCANNER SETUP ──
     function setupEventListeners() {
         const scannerInput = document.getElementById('barcodeScannerInput');
+        if (!scannerInput || scannerInput.dataset.posEventsBound) return;
+        scannerInput.dataset.posEventsBound = 'true';
 
         // Barcode Scanner & Search Handler
         scannerInput.addEventListener('keydown', function (e) {
@@ -629,12 +808,15 @@
             renderProductGrid();
         });
 
-        document.getElementById('clearSearchBtn').addEventListener('click', function () {
-            scannerInput.value = '';
-            searchQuery = '';
-            renderProductGrid();
-            scannerInput.focus();
-        });
+        const clearBtn = document.getElementById('clearSearchBtn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function () {
+                scannerInput.value = '';
+                searchQuery = '';
+                renderProductGrid();
+                scannerInput.focus();
+            });
+        }
 
         // Global hotkey: F2 or '/' auto-focuses scanner input
         document.addEventListener('keydown', function (e) {
@@ -655,38 +837,47 @@
         });
 
         // Customer Selection
-        document.getElementById('customerSelect').addEventListener('change', function () {
-            const selectedOpt = this.options[this.selectedIndex];
-            selectedCustomerId = this.value ? parseInt(this.value) : null;
-            selectedCustomerDiscount = parseFloat(selectedOpt.getAttribute('data-discount') || 0);
+        const custSelect = document.getElementById('customerSelect');
+        if (custSelect) {
+            custSelect.addEventListener('change', function () {
+                const selectedOpt = this.options[this.selectedIndex];
+                selectedCustomerId = this.value ? parseInt(this.value) : null;
+                selectedCustomerDiscount = parseFloat(selectedOpt ? selectedOpt.getAttribute('data-discount') : 0) || 0;
 
-            const tierBadgeContainer = document.getElementById('customerTierBadgeContainer');
-            const benefitBadge = document.getElementById('customerBenefitBadge');
+                const tierBadgeContainer = document.getElementById('customerTierBadgeContainer');
+                const benefitBadge = document.getElementById('customerBenefitBadge');
 
-            if (selectedCustomerId && selectedCustomerDiscount > 0) {
-                tierBadgeContainer.style.setProperty('display', 'flex', 'important');
-                benefitBadge.innerText = `${selectedOpt.getAttribute('data-tier')} VIP (${selectedCustomerDiscount}% Off)`;
-            } else {
-                tierBadgeContainer.style.setProperty('display', 'none', 'important');
-            }
+                if (selectedCustomerId && selectedCustomerDiscount > 0) {
+                    if (tierBadgeContainer) tierBadgeContainer.style.setProperty('display', 'flex', 'important');
+                    if (benefitBadge) benefitBadge.innerText = `${selectedOpt.getAttribute('data-tier')} VIP (${selectedCustomerDiscount}% Off)`;
+                } else {
+                    if (tierBadgeContainer) tierBadgeContainer.style.setProperty('display', 'none', 'important');
+                }
 
-            updateCartTotals();
-        });
+                updateCartTotals();
+            });
+        }
 
         // Clear Cart
-        document.getElementById('clearCartBtn').addEventListener('click', function () {
-            if (cart.length === 0) return;
-            if (confirm('Clear all items from this register ticket?')) {
-                cart = [];
-                renderCart();
-            }
-        });
+        const clearCartBtn = document.getElementById('clearCartBtn');
+        if (clearCartBtn) {
+            clearCartBtn.addEventListener('click', function () {
+                if (cart.length === 0) return;
+                if (confirm('Clear all items from this register ticket?')) {
+                    cart = [];
+                    renderCart();
+                }
+            });
+        }
 
         // Proceed to Checkout Button
-        document.getElementById('proceedCheckoutBtn').addEventListener('click', function () {
-            if (cart.length === 0) return;
-            openCheckoutModal();
-        });
+        const checkoutBtn = document.getElementById('proceedCheckoutBtn');
+        if (checkoutBtn) {
+            checkoutBtn.addEventListener('click', function () {
+                if (cart.length === 0) return;
+                openCheckoutModal();
+            });
+        }
 
         // Payment Method Selector
         document.querySelectorAll('.pay-btn-tile').forEach(tile => {
@@ -700,24 +891,43 @@
 
         // Cash Received Input
         const cashInput = document.getElementById('cashReceivedInput');
-        cashInput.addEventListener('input', calculateCashChange);
+        if (cashInput) cashInput.addEventListener('input', calculateCashChange);
 
         // Confirm Payment Submission
-        document.getElementById('confirmPaymentBtn').addEventListener('click', submitCheckout);
+        const confirmBtn = document.getElementById('confirmPaymentBtn');
+        if (confirmBtn) confirmBtn.addEventListener('click', submitCheckout);
 
         // New Sale Reset Button from Receipt Modal
-        document.getElementById('startNewSaleBtn').addEventListener('click', function () {
-            receiptModalInstance.hide();
-            cart = [];
-            selectedCustomerId = null;
-            document.getElementById('customerSelect').value = '';
-            document.getElementById('customerTierBadgeContainer').style.setProperty('display', 'none', 'important');
-            renderCart();
-            scannerInput.focus();
-        });
+        const newSaleBtn = document.getElementById('startNewSaleBtn');
+        if (newSaleBtn) {
+            newSaleBtn.addEventListener('click', function () {
+                if (receiptModalInstance) receiptModalInstance.hide();
+                cart = [];
+                selectedCustomerId = null;
+                const cSelect = document.getElementById('customerSelect');
+                if (cSelect) cSelect.value = '';
+                const tBadge = document.getElementById('customerTierBadgeContainer');
+                if (tBadge) tBadge.style.setProperty('display', 'none', 'important');
+                renderCart();
+                scannerInput.focus();
+            });
+        }
 
         // Quick Customer Enrollment Form
-        document.getElementById('quickCustomerForm').addEventListener('submit', handleQuickCustomerEnrollment);
+        const quickCustForm = document.getElementById('quickCustomerForm');
+        if (quickCustForm) quickCustForm.addEventListener('submit', handleQuickCustomerEnrollment);
+    }
+
+    function resetFilters() {
+        const scannerInput = document.getElementById('barcodeScannerInput');
+        if (scannerInput) scannerInput.value = '';
+        searchQuery = '';
+        activeCategoryFilter = 'all';
+        document.querySelectorAll('.pos-cat-pill').forEach(b => {
+            b.classList.toggle('active', b.getAttribute('data-category') === 'all');
+        });
+        renderProductGrid();
+        if (scannerInput) scannerInput.focus();
     }
 
     // ── CATALOG RENDERING & FILTERING ──
@@ -725,56 +935,79 @@
         const grid = document.getElementById('posProductGrid');
         const emptyState = document.getElementById('noProductsFound');
         const countBadge = document.getElementById('productCountBadge');
+        if (!grid) return;
 
         const filtered = productCatalog.filter(p => {
-            const matchesCategory = (activeCategoryFilter === 'all') || (p.category_id == activeCategoryFilter);
+            const matchesCategory = (activeCategoryFilter === 'all') || (String(p.category_id) === String(activeCategoryFilter));
             const matchesSearch = !searchQuery || 
                 p.name.toLowerCase().includes(searchQuery) || 
                 (p.barcode && p.barcode.toLowerCase().includes(searchQuery));
             return matchesCategory && matchesSearch;
         });
 
-        countBadge.innerText = `Showing ${filtered.length} formula${filtered.length === 1 ? '' : 's'}`;
+        if (countBadge) {
+            countBadge.innerText = `Showing ${filtered.length} formula${filtered.length === 1 ? '' : 's'}`;
+        }
 
         if (filtered.length === 0) {
             grid.innerHTML = '';
-            emptyState.classList.remove('d-none');
+            if (emptyState) emptyState.classList.remove('d-none');
             return;
         }
 
-        emptyState.classList.add('d-none');
+        if (emptyState) emptyState.classList.add('d-none');
 
         grid.innerHTML = filtered.map(p => {
-            const isOutOfStock = p.qty <= 0;
+            const isOutOfStock = Number(p.qty) <= 0;
             const stockBadgeClass = isOutOfStock 
-                ? 'bg-danger-subtle text-danger' 
-                : (p.is_low_stock ? 'bg-warning-subtle text-warning-emphasis' : 'bg-success-subtle text-success');
+                ? 'bg-danger-subtle text-danger border border-danger-subtle' 
+                : (p.is_low_stock ? 'bg-warning-subtle text-warning-emphasis border border-warning-subtle' : 'bg-success-subtle text-success border border-success-subtle');
             const stockText = isOutOfStock ? 'Out of Stock' : `${p.qty} in stock`;
 
-            const imageHtml = p.image 
-                ? `<img src="/${p.image}" alt="${p.name}" class="pos-thumb-img">`
-                : (p.id ? `<img src="/images/products/skincare_bottle.jpg" alt="Skincare" class="pos-thumb-img">` 
-                         : `<i class="bi bi-droplet-half fs-2 text-primary"></i>`);
+            let imageUrl = p.image || '';
+            if (imageUrl) {
+                imageUrl = (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) ? imageUrl : (imageUrl.startsWith('/') ? imageUrl : '/' + imageUrl);
+            } else {
+                imageUrl = '/images/products/skincare_bottle.jpg';
+            }
 
             const promoBadgeHtml = p.promo_text 
-                ? `<span class="badge bg-danger position-absolute top-0 end-0 m-2" style="font-size: 0.65rem;">${p.promo_text}</span>` 
+                ? `<span class="badge bg-danger position-absolute top-0 end-0 m-2 shadow-sm" style="font-size: 0.65rem; z-index: 2;">${p.promo_text}</span>` 
                 : '';
+
+            const priceFormatted = (Number(p.price) || 0).toFixed(2);
 
             return `
                 <div class="col-6 col-sm-4 col-md-4 col-xl-3">
-                    <div class="pos-product-card ${isOutOfStock ? 'out-of-stock' : ''}" onclick="addToCart(${p.id})">
+                    <div class="pos-product-card ${isOutOfStock ? 'out-of-stock' : ''}" 
+                         onclick="window.posAddToCart ? window.posAddToCart(${p.id}) : null"
+                         title="${isOutOfStock ? 'Out of Stock' : 'Add ' + p.name + ' to ticket'}"
+                         role="button"
+                         tabindex="0">
                         ${promoBadgeHtml}
                         <div>
-                            <div class="pos-thumb-box">
-                                ${imageHtml}
+                            <div class="pos-thumb-box position-relative">
+                                <img src="${imageUrl}" 
+                                     alt="${p.name}" 
+                                     class="pos-thumb-img" 
+                                     loading="lazy"
+                                     onerror="this.onerror=null;this.src='/images/products/skincare_bottle.jpg';">
+                                ${!isOutOfStock ? `
+                                <div class="pos-card-add-overlay">
+                                    <span class="btn btn-sm btn-light rounded-circle shadow-sm p-1 d-inline-flex align-items-center justify-content-center" style="width: 28px; height: 28px;">
+                                        <i class="bi bi-plus text-primary fw-bold fs-6"></i>
+                                    </span>
+                                </div>` : ''}
                             </div>
-                            <span class="badge bg-light text-muted border mb-1" style="font-size: 0.65rem;">${p.category_name}</span>
+                            <span class="badge bg-light text-muted border mb-1" style="font-size: 0.65rem;">${p.category_name || 'Skincare'}</span>
                             <div class="fw-bold text-dark text-truncate" style="font-size: 0.83rem;" title="${p.name}">${p.name}</div>
-                            <div class="text-muted font-monospace" style="font-size: 0.7rem;">${p.barcode || 'N/A'}</div>
+                            <div class="text-muted font-monospace" style="font-size: 0.7rem;">
+                                <i class="bi bi-upc me-1 text-muted" style="font-size: 0.65rem;"></i>${p.barcode || 'N/A'}
+                            </div>
                         </div>
 
                         <div class="d-flex align-items-center justify-content-between mt-2 pt-2 border-top">
-                            <span class="fw-bold text-dark fs-6">$${p.price.toFixed(2)}</span>
+                            <span class="fw-bold text-dark fs-6 font-monospace">${priceFormatted}</span>
                             <span class="badge ${stockBadgeClass}" style="font-size: 0.68rem;">${stockText}</span>
                         </div>
                     </div>
@@ -967,6 +1200,19 @@
         document.getElementById('summaryTax').innerText = `$${totals.tax.toFixed(2)}`;
         document.getElementById('summaryFinalTotal').innerText = `$${totals.finalTotal.toFixed(2)}`;
         document.getElementById('btnPayAmount').innerText = `$${totals.finalTotal.toFixed(2)}`;
+
+        const mobileTicketBar = document.getElementById('posMobileTicketBar');
+        if (mobileTicketBar) {
+            if (cart.length > 0) {
+                mobileTicketBar.style.display = 'block';
+                const mobileTotalEl = document.getElementById('mobileTicketTotal');
+                const mobileItemsEl = document.getElementById('mobileTicketItems');
+                if (mobileTotalEl) mobileTotalEl.innerText = `$${totals.finalTotal.toFixed(2)}`;
+                if (mobileItemsEl) mobileItemsEl.innerText = posI18n.itemsCount(cart.reduce((sum, i) => sum + i.qty, 0));
+            } else {
+                mobileTicketBar.style.display = 'none';
+            }
+        }
     }
 
     // ── CHECKOUT MODAL LOGIC ──
@@ -975,8 +1221,8 @@
         document.getElementById('modalFinalTotal').innerText = `$${totals.finalTotal.toFixed(2)}`;
 
         const customerSelect = document.getElementById('customerSelect');
-        const clientName = customerSelect.value ? customerSelect.options[customerSelect.selectedIndex].text : 'Walk-in Guest';
-        document.getElementById('modalClientSummary').innerText = `Client: ${clientName}`;
+        const clientName = customerSelect.value ? customerSelect.options[customerSelect.selectedIndex].text : posI18n.walkInGuest;
+        document.getElementById('modalClientSummary').innerText = `${posI18n.clientPrefix}${clientName}`;
 
         // Setup quick cash buttons
         const quickCashContainer = document.getElementById('quickCashButtons');
@@ -988,7 +1234,7 @@
         const suggestions = Array.from(new Set([exact, next10, next50, next100])).sort((a,b) => a - b);
 
         quickCashContainer.innerHTML = suggestions.map(val => {
-            const label = (val === exact) ? `Exact ($${val.toFixed(2)})` : `$${val.toFixed(2)}`;
+            const label = (val === exact) ? `${posI18n.exact} (${val.toFixed(2)})` : `${val.toFixed(2)}`;
             return `<button type="button" class="quick-cash-chip" onclick="setCashTender(${val})">${label}</button>`;
         }).join('');
 
@@ -1178,5 +1424,25 @@
             submitBtn.disabled = false;
         }
     }
+
+    // Expose helpers globally so inline handlers and window scope always work
+    window.posAddToCart = addToCart;
+    window.posUpdateCartQty = updateCartQty;
+    window.posRemoveCartItem = removeCartItem;
+    window.posSetCashTender = setCashTender;
+    window.posResetFilters = resetFilters;
+    window.addToCart = addToCart;
+    window.updateCartQty = updateCartQty;
+    window.removeCartItem = removeCartItem;
+    window.setCashTender = setCashTender;
+
+    // Run initialization whether DOM is loading, already ready, or swapped via AJAX
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initPosTerminal);
+    } else {
+        initPosTerminal();
+    }
+    document.addEventListener('app:page-loaded', initPosTerminal);
+})();
 </script>
 @endpush

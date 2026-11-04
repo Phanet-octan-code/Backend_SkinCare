@@ -107,7 +107,7 @@
                                 <div class="brand-icon-box mx-auto mb-2" style="width: 64px; height: 64px; font-size: 1.8rem;">
                                     <i class="bi bi-flower1"></i>
                                 </div>
-                                <div class="fw-semibold text-dark small">Default SkinCare Boutique Icon</div>
+                                <div class="fw-semibold text-dark small">Default Élixir Botanique Icon</div>
                                 <div class="text-muted" style="font-size: 0.72rem;">No custom image uploaded yet</div>
                             @endif
                         </div>

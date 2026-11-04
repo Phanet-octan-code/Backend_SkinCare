@@ -11,6 +11,12 @@ use Illuminate\View\View;
 
 class CustomerController extends Controller
 {
+    public static function clearCustomerCaches(): void
+    {
+        \Illuminate\Support\Facades\Cache::forget('pos_terminal_catalog_bundle');
+        \Illuminate\Support\Facades\Cache::forget('active_customers_list');
+    }
+
     /**
      * Display skincare customers & VIP loyalty members with CRM filters and search.
      */
@@ -80,12 +86,7 @@ class CustomerController extends Controller
 
         $membershipNumber = !empty($validated['membership_number'])
             ? trim($validated['membership_number'])
-            : 'MEM-' . $tierCode . '-' . rand(1000, 9999);
-
-        // Ensure uniqueness if randomly generated
-        while (Customer::where('membership_number', $membershipNumber)->exists()) {
-            $membershipNumber = 'MEM-' . $tierCode . '-' . rand(1000, 9999);
-        }
+            : 'MEM-' . $tierCode . '-' . strtoupper(substr(uniqid(), -4));
 
         $customer = Customer::create([
             'name' => $validated['name'],
@@ -97,7 +98,9 @@ class CustomerController extends Controller
             'status' => $validated['status'] ?? 'active',
         ]);
 
-        if ($request->wantsJson()) {
+        self::clearCustomerCaches();
+
+        if ($request->wantsJson() || $request->ajax()) {
             return response()->json([
                 'success' => true,
                 'message' => 'Customer registered successfully.',
@@ -156,7 +159,7 @@ class CustomerController extends Controller
     /**
      * Update customer profile and membership details.
      */
-    public function update(Request $request, Customer $customer): RedirectResponse
+    public function update(Request $request, Customer $customer): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -182,6 +185,15 @@ class CustomerController extends Controller
         ]);
 
         $customer->update($validated);
+        self::clearCustomerCaches();
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Customer [{$customer->name}] profile updated successfully.",
+                'customer' => $customer,
+            ]);
+        }
 
         return redirect()->back()
             ->with('status', "Customer [{$customer->name}] profile updated successfully.");
@@ -190,10 +202,19 @@ class CustomerController extends Controller
     /**
      * Toggle customer active/inactive status.
      */
-    public function toggleStatus(Customer $customer): RedirectResponse
+    public function toggleStatus(Customer $customer): RedirectResponse|JsonResponse
     {
         $newStatus = $customer->status === 'active' ? 'inactive' : 'active';
         $customer->update(['status' => $newStatus]);
+        self::clearCustomerCaches();
+
+        if (request()->wantsJson() || request()->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Customer [{$customer->name}] status changed to " . ucfirst($newStatus) . '.',
+                'status' => $newStatus,
+            ]);
+        }
 
         return redirect()->back()
             ->with('status', "Customer [{$customer->name}] status changed to " . ucfirst($newStatus) . '.');
@@ -202,19 +223,38 @@ class CustomerController extends Controller
     /**
      * Remove customer or deactivate if historical sales exist.
      */
-    public function destroy(Customer $customer): RedirectResponse
+    public function destroy(Customer $customer): RedirectResponse|JsonResponse
     {
         $hasSales = $customer->sales()->exists();
 
         if ($hasSales) {
             $customer->update(['status' => 'inactive']);
+            self::clearCustomerCaches();
+
+            $msg = "Customer [{$customer->name}] has historical sales transactions. The client profile was deactivated instead of deleted to protect sales history.";
+
+            if (request()->wantsJson() || request()->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $msg,
+                    'deactivated' => true,
+                ]);
+            }
 
             return redirect()->route('customers.index')
-                ->with('status', "Customer [{$customer->name}] has historical sales transactions. The client profile was deactivated instead of deleted to protect sales history.");
+                ->with('status', $msg);
         }
 
         $name = $customer->name;
         $customer->delete();
+        self::clearCustomerCaches();
+
+        if (request()->wantsJson() || request()->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Customer [{$name}] deleted successfully.",
+            ]);
+        }
 
         return redirect()->route('customers.index')
             ->with('status', "Customer [{$name}] deleted successfully.");

@@ -137,7 +137,7 @@
                                     </button>
                                 </li>
                                 <li>
-                                    <form method="POST" action="{{ route('customers.toggle-status', $customer) }}">
+                                    <form method="POST" action="{{ route('customers.toggle-status', $customer) }}" class="pos-quick-form">
                                         @csrf
                                         @method('PATCH')
                                         <button type="submit" class="dropdown-item d-flex align-items-center gap-2">

@@ -69,10 +69,13 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::middleware('role:admin,manager')->group(function () {
         Route::get('/products', [ProductController::class, 'index'])->name('products.index');
         Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+        Route::get('/products/generate-barcode', [ProductController::class, 'generateBarcode'])->name('products.generate-barcode');
+        Route::delete('/products/bulk-delete', [ProductController::class, 'bulkDestroy'])->name('products.bulk-delete');
         Route::get('/products/{product}', [ProductController::class, 'show'])->name('products.show');
         Route::put('/products/{product}', [ProductController::class, 'update'])->name('products.update');
         Route::patch('/products/{product}/toggle-status', [ProductController::class, 'toggleStatus'])->name('products.toggle-status');
         Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+        Route::post('/products/{id}/restore', [ProductController::class, 'restore'])->name('products.restore');
 
         Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
         Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');

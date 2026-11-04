@@ -27,7 +27,7 @@
     </div>
 
     @if(isset($actions))
-    <div class="d-flex align-items-center gap-2">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
         {{ $actions }}
     </div>
     @endif

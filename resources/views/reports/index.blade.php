@@ -108,7 +108,7 @@
 <div class="d-none d-print-block mb-4 border-bottom pb-3">
     <div class="d-flex justify-content-between align-items-center">
         <div>
-            <h3 class="fw-bold text-dark mb-0">SkinCare POS Management System</h3>
+            <h3 class="fw-bold text-dark mb-0">Élixir Botanique Dispensary & Management</h3>
             <p class="text-muted small mb-0">Executive Audit & Analytics Report &bull; Generated: {{ now()->format('M j, Y h:i A') }}</p>
         </div>
         <div class="text-end">

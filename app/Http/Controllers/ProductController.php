@@ -13,7 +13,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class ProductController extends Controller
@@ -21,6 +23,18 @@ class ProductController extends Controller
     public function __construct(
         protected InventoryService $inventoryService
     ) {}
+
+    public static function clearProductCaches(): void
+    {
+        Cache::forget('products_catalog_counts');
+        Cache::forget('pos_catalog_products');
+        Cache::forget('pos_terminal_catalog_bundle');
+        Cache::forget('active_categories_list');
+        Cache::forget('active_suppliers_list');
+        Cache::forget('inventory_valuation_summary');
+        Cache::forget('topbar_low_stock_alerts');
+        Cache::forget('active_products_compact');
+    }
 
     /**
      * Display product catalog with search, category/supplier filters, stock status, sorting, and pagination.
@@ -60,9 +74,14 @@ class ProductController extends Controller
             $query->where('supplier_id', $request->input('supplier_id'));
         }
 
-        // Filter by status (active / inactive)
-        if ($request->filled('status') && in_array($request->input('status'), ['active', 'inactive'], true)) {
-            $query->where('status', $request->input('status'));
+        // Filter by status (active / inactive / trashed)
+        if ($request->filled('status')) {
+            $status = $request->input('status');
+            if ($status === 'trashed') {
+                $query->onlyTrashed();
+            } elseif (in_array($status, ['active', 'inactive'], true)) {
+                $query->where('status', $status);
+            }
         }
 
         // Filter by stock status
@@ -91,22 +110,49 @@ class ProductController extends Controller
 
         $products = $query->paginate(15)->withQueryString();
 
-        // Active storewide promotions applicable to all products
-        $storewidePromotions = Promotion::where('status', 'active')
-            ->whereDate('start_date', '<=', $today)
-            ->whereDate('end_date', '>=', $today)
-            ->whereDoesntHave('products')
-            ->get();
+        // Cached lookup data to minimize remote latency
+        $categories = Cache::remember('active_categories_list', 120, function () {
+            return Category::where('status', 'active')->orderBy('name')->get();
+        });
+
+        $suppliers = Cache::remember('active_suppliers_list', 120, function () {
+            return Supplier::where('status', 'active')->orderBy('name')->get();
+        });
+
+        $storewidePromotions = Cache::remember('storewide_promotions_' . $today, 120, function () use ($today) {
+            return Promotion::where('status', 'active')
+                ->whereDate('start_date', '<=', $today)
+                ->whereDate('end_date', '>=', $today)
+                ->whereDoesntHave('products')
+                ->get();
+        });
+
+        // Combined single-query counts
+        $counts = Cache::remember('products_catalog_counts', 60, function () {
+            $row = Product::selectRaw("
+                COUNT(*) as total,
+                COUNT(CASE WHEN status = 'active' THEN 1 END) as active_count,
+                COUNT(CASE WHEN qty <= low_stock_threshold AND qty > 0 THEN 1 END) as low_count,
+                COUNT(CASE WHEN qty <= 0 THEN 1 END) as out_count
+            ")->first();
+
+            return [
+                'total' => (int) ($row->total ?? 0),
+                'active' => (int) ($row->active_count ?? 0),
+                'low' => (int) ($row->low_count ?? 0),
+                'out' => (int) ($row->out_count ?? 0),
+            ];
+        });
 
         return view('products.index', [
             'products' => $products,
-            'categories' => Category::where('status', 'active')->orderBy('name')->get(),
-            'suppliers' => Supplier::where('status', 'active')->orderBy('name')->get(),
+            'categories' => $categories,
+            'suppliers' => $suppliers,
             'storewidePromotions' => $storewidePromotions,
-            'totalProducts' => Product::count(),
-            'activeCatalogCount' => Product::where('status', 'active')->count(),
-            'lowStockCount' => Product::whereRaw('qty <= low_stock_threshold')->where('qty', '>', 0)->count(),
-            'outOfStockCount' => Product::where('qty', '<=', 0)->count(),
+            'totalProducts' => $counts['total'],
+            'activeCatalogCount' => $counts['active'],
+            'lowStockCount' => $counts['low'],
+            'outOfStockCount' => $counts['out'],
         ]);
     }
 
@@ -140,13 +186,56 @@ class ProductController extends Controller
     }
 
     /**
+     * Generate an authentic, scanner-compliant, unique EAN-13 barcode.
+     */
+    public static function generateUniqueBarcode(): string
+    {
+        do {
+            // Standard internal in-store retail prefix: 200
+            // Followed by 9 random digits = 12 base digits
+            $base = '200' . str_pad((string) random_int(100000000, 999999999), 9, '0', STR_PAD_LEFT);
+
+            // Calculate EAN-13 checksum (modulo-10)
+            $sum = 0;
+            for ($i = 0; $i < 12; $i++) {
+                $digit = (int) $base[$i];
+                $sum += ($i % 2 === 0) ? $digit : $digit * 3;
+            }
+            $checkDigit = (10 - ($sum % 10)) % 10;
+            $barcode = $base . $checkDigit;
+        } while (Product::where('barcode', $barcode)->exists());
+
+        return $barcode;
+    }
+
+    /**
+     * API / AJAX endpoint to generate a unique barcode.
+     */
+    public function generateBarcode(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'barcode' => self::generateUniqueBarcode(),
+        ]);
+    }
+
+    /**
      * Store a new product with image validation and audited stock initialization.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): RedirectResponse|JsonResponse
     {
+        // Auto-generate unique barcode if omitted
+        if (!$request->filled('barcode')) {
+            $request->merge(['barcode' => self::generateUniqueBarcode()]);
+        }
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:200'],
-            'barcode' => ['required', 'string', 'max:100', 'unique:products,barcode'],
+            'barcode' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('products', 'barcode')->whereNull('deleted_at'),
+            ],
             'category_id' => ['required', 'exists:categories,id'],
             'supplier_id' => ['required', 'exists:suppliers,id'],
             'cost_price' => ['required', 'numeric', 'min:0'],
@@ -210,6 +299,16 @@ class ProductController extends Controller
             );
         }
 
+        self::clearProductCaches();
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Product '{$product->name}' created successfully.",
+                'product' => $product,
+            ]);
+        }
+
         return redirect()->route('products.index')
             ->with('success', "Product '{$product->name}' created successfully.");
     }
@@ -217,11 +316,16 @@ class ProductController extends Controller
     /**
      * Update an existing product.
      */
-    public function update(Request $request, Product $product): RedirectResponse
+    public function update(Request $request, Product $product): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:200'],
-            'barcode' => ['required', 'string', 'max:100', 'unique:products,barcode,' . $product->id],
+            'barcode' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('products', 'barcode')->ignore($product->id)->whereNull('deleted_at'),
+            ],
             'category_id' => ['required', 'exists:categories,id'],
             'supplier_id' => ['required', 'exists:suppliers,id'],
             'cost_price' => ['required', 'numeric', 'min:0'],
@@ -267,6 +371,16 @@ class ProductController extends Controller
             'status' => $validated['status'],
         ]);
 
+        self::clearProductCaches();
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Product '{$product->name}' updated successfully.",
+                'product' => $product,
+            ]);
+        }
+
         return redirect()->route('products.index')
             ->with('success', "Product '{$product->name}' updated successfully.");
     }
@@ -274,49 +388,100 @@ class ProductController extends Controller
     /**
      * Toggle active/inactive status safely.
      */
-    public function toggleStatus(Product $product): RedirectResponse
+    public function toggleStatus(Product $product): RedirectResponse|JsonResponse
     {
         $newStatus = $product->status === 'active' ? 'inactive' : 'active';
         $product->update(['status' => $newStatus]);
+
+        self::clearProductCaches();
+
+        if (request()->wantsJson() || request()->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Product '{$product->name}' status changed to " . ucfirst($newStatus) . '.',
+                'status' => $newStatus,
+            ]);
+        }
 
         return redirect()->route('products.index')
             ->with('success', "Product '{$product->name}' status changed to " . ucfirst($newStatus) . '.');
     }
 
     /**
-     * Safely delete product, preventing deletion if referenced by sales or inventory transactions.
+     * Safely delete product using soft deletes to preserve sales and inventory audit records.
      */
-    public function destroy(Product $product): RedirectResponse
+    public function destroy(Product $product): RedirectResponse|JsonResponse
     {
-        $saleCount = $product->saleDetails()->count();
-        $txnCount = $product->stockTransactions()->count();
-
-        if ($saleCount > 0 || $txnCount > 0) {
-            $reason = [];
-            if ($saleCount > 0) {
-                $reason[] = "{$saleCount} sales invoice item(s)";
-            }
-            if ($txnCount > 0) {
-                $reason[] = "{$txnCount} stock audit transaction(s)";
-            }
-
-            return redirect()->route('products.index')
-                ->with('error', "Cannot delete product '{$product->name}' because it has " . implode(' and ', $reason) . '. Please deactivate the product instead to protect audit records.');
-        }
-
         $productName = $product->name;
 
-        // Clean up image file
-        if ($product->image && File::exists(public_path($product->image)) && str_contains($product->image, 'prod_')) {
-            File::delete(public_path($product->image));
-        }
-
-        // Delete stock record and promotions pivot
-        $product->stock()->delete();
-        $product->promotions()->detach();
+        // Perform safe soft delete (preserves stock audit trail and sales records)
         $product->delete();
+
+        self::clearProductCaches();
+        \App\Http\Controllers\PosController::clearPosCaches();
+
+        if (request()->wantsJson() || request()->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Product '{$productName}' deleted successfully.",
+            ]);
+        }
 
         return redirect()->route('products.index')
             ->with('success', "Product '{$productName}' deleted successfully.");
+    }
+
+    /**
+     * Safely delete multiple products in bulk using soft deletes.
+     * Authorized for: Admin, Manager.
+     */
+    public function bulkDestroy(Request $request): RedirectResponse|JsonResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['required', 'integer', 'exists:products,id'],
+        ], [
+            'ids.required' => 'Please select at least one product to delete.',
+            'ids.min' => 'Please select at least one product to delete.',
+        ]);
+
+        $ids = $validated['ids'];
+        $count = Product::whereIn('id', $ids)->delete();
+
+        self::clearProductCaches();
+        \App\Http\Controllers\PosController::clearPosCaches();
+
+        $message = "Successfully deleted {$count} " . ($count === 1 ? 'product' : 'products') . ' from catalog.';
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'deleted_count' => $count,
+            ]);
+        }
+
+        return redirect()->route('products.index')->with('success', $message);
+    }
+
+    /**
+     * Restore a soft-deleted product.
+     */
+    public function restore(int $id): RedirectResponse|JsonResponse
+    {
+        $product = Product::onlyTrashed()->findOrFail($id);
+        $product->restore();
+
+        self::clearProductCaches();
+
+        if (request()->wantsJson() || request()->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Product '{$product->name}' restored successfully.",
+            ]);
+        }
+
+        return redirect()->route('products.index')
+            ->with('success', "Product '{$product->name}' restored successfully.");
     }
 }

@@ -11,9 +11,11 @@ use App\Models\StockTransfer;
 use App\Models\Supplier;
 use App\Services\InventoryService;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use InvalidArgumentException;
@@ -74,7 +76,7 @@ class InventoryController extends Controller
         return view('inventory.index', [
             'stocks' => $stocks,
             'valuation' => $valuation,
-            'categories' => Category::where('status', 'active')->orderBy('name')->get(),
+            'categories' => Cache::remember('active_categories_list', 120, fn() => Category::where('status', 'active')->orderBy('name')->get()),
             'filters' => $request->only(['search', 'category_id', 'stock_status', 'sort']),
         ]);
     }
@@ -102,8 +104,8 @@ class InventoryController extends Controller
 
         return view('inventory.stock-in', [
             'transactions' => $transactions,
-            'products' => Product::where('status', 'active')->orderBy('name')->get(),
-            'suppliers' => Supplier::where('status', 'active')->orderBy('name')->get(),
+            'products' => Product::where('status', 'active')->select(['id', 'name', 'barcode', 'supplier_id', 'cost_price', 'qty'])->orderBy('name')->get(),
+            'suppliers' => Supplier::where('status', 'active')->select(['id', 'name'])->orderBy('name')->get(),
             'totalReceivedUnits' => StockTransaction::where('type', StockTransaction::TYPE_STOCK_IN)->sum('qty'),
         ]);
     }
@@ -111,7 +113,7 @@ class InventoryController extends Controller
     /**
      * Process stock-in receiving from supplier.
      */
-    public function processStockIn(Request $request): RedirectResponse
+    public function processStockIn(Request $request): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'product_id' => ['required', 'exists:products,id'],
@@ -139,9 +141,27 @@ class InventoryController extends Controller
                 date: $validated['date'] ?? null
             );
 
+            Cache::forget('inventory_valuation_summary');
+            Cache::forget('products_catalog_counts');
+
+            $msg = "Received {$validated['qty']} units of [{$product->name}] under Ref: {$refNumber}.";
+
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $msg,
+                ]);
+            }
+
             return redirect()->route('inventory.stock-in')
-                ->with('success', "Received {$validated['qty']} units of [{$product->name}] under Ref: {$refNumber}.");
+                ->with('success', $msg);
         } catch (InvalidArgumentException $e) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                ], 422);
+            }
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
     }
@@ -169,7 +189,7 @@ class InventoryController extends Controller
 
         return view('inventory.stock-out', [
             'transactions' => $transactions,
-            'products' => Product::where('status', 'active')->orderBy('name')->get(),
+            'products' => Product::where('status', 'active')->select(['id', 'name', 'qty'])->orderBy('name')->get(),
             'totalDeductedUnits' => abs(StockTransaction::where('type', StockTransaction::TYPE_STOCK_OUT)->sum('qty')),
         ]);
     }
@@ -177,7 +197,7 @@ class InventoryController extends Controller
     /**
      * Process authorized stock removal for non-sale reasons.
      */
-    public function processStockOut(Request $request): RedirectResponse
+    public function processStockOut(Request $request): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'product_id' => ['required', 'exists:products,id'],
@@ -202,9 +222,20 @@ class InventoryController extends Controller
                 date: $validated['date'] ?? null
             );
 
-            return redirect()->route('inventory.stock-out')
-                ->with('success', "Deducted {$validated['qty']} units of [{$product->name}] for: {$validated['reason']}.");
+            Cache::forget('inventory_valuation_summary');
+            Cache::forget('products_catalog_counts');
+
+            $msg = "Deducted {$validated['qty']} units of [{$product->name}] for: {$validated['reason']}.";
+
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => true, 'message' => $msg]);
+            }
+
+            return redirect()->route('inventory.stock-out')->with('success', $msg);
         } catch (InvalidArgumentException $e) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+            }
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
     }
@@ -246,7 +277,7 @@ class InventoryController extends Controller
     /**
      * Process creation of stock transfer.
      */
-    public function processTransfer(Request $request): RedirectResponse
+    public function processTransfer(Request $request): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'source_location' => ['required', 'string', 'max:100'],
@@ -269,9 +300,17 @@ class InventoryController extends Controller
                 notes: $validated['notes'] ?? null
             );
 
-            return redirect()->route('inventory.transfers')
-                ->with('success', "Transfer #{$transfer->reference_number} created and dispatched successfully.");
+            $msg = "Transfer #{$transfer->reference_number} created and dispatched successfully.";
+
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => true, 'message' => $msg]);
+            }
+
+            return redirect()->route('inventory.transfers')->with('success', $msg);
         } catch (InvalidArgumentException $e) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+            }
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
     }
@@ -279,7 +318,7 @@ class InventoryController extends Controller
     /**
      * Update stock transfer status (completed / cancelled).
      */
-    public function updateTransferStatus(Request $request, StockTransfer $transfer): RedirectResponse
+    public function updateTransferStatus(Request $request, StockTransfer $transfer): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'status' => ['required', 'in:completed,cancelled'],
@@ -295,10 +334,17 @@ class InventoryController extends Controller
             );
 
             $actionText = $validated['status'] === 'completed' ? 'marked as Completed' : 'Cancelled and restocked';
+            $msg = "Transfer #{$transfer->reference_number} has been {$actionText}.";
 
-            return redirect()->route('inventory.transfers')
-                ->with('success', "Transfer #{$transfer->reference_number} has been {$actionText}.");
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => true, 'message' => $msg]);
+            }
+
+            return redirect()->route('inventory.transfers')->with('success', $msg);
         } catch (InvalidArgumentException $e) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+            }
             return redirect()->back()->with('error', $e->getMessage());
         }
     }
@@ -326,7 +372,7 @@ class InventoryController extends Controller
 
         return view('inventory.damaged', [
             'transactions' => $transactions,
-            'products' => Product::where('status', 'active')->where('qty', '>', 0)->orderBy('name')->get(),
+            'products' => Product::where('status', 'active')->where('qty', '>', 0)->select(['id', 'name', 'qty'])->orderBy('name')->get(),
             'totalDamagedUnits' => abs(StockTransaction::where('type', StockTransaction::TYPE_DAMAGED)->sum('qty')),
         ]);
     }
@@ -334,7 +380,7 @@ class InventoryController extends Controller
     /**
      * Process broken, damaged, or expired stock write-off.
      */
-    public function processDamaged(Request $request): RedirectResponse
+    public function processDamaged(Request $request): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'product_id' => ['required', 'exists:products,id'],
@@ -359,9 +405,20 @@ class InventoryController extends Controller
                 date: $validated['date'] ?? null
             );
 
-            return redirect()->route('inventory.damaged')
-                ->with('success', "Written off {$validated['qty']} damaged/expired units of [{$product->name}].");
+            Cache::forget('inventory_valuation_summary');
+            Cache::forget('products_catalog_counts');
+
+            $msg = "Written off {$validated['qty']} damaged/expired units of [{$product->name}].";
+
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => true, 'message' => $msg]);
+            }
+
+            return redirect()->route('inventory.damaged')->with('success', $msg);
         } catch (InvalidArgumentException $e) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+            }
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
     }
@@ -404,7 +461,7 @@ class InventoryController extends Controller
     /**
      * Process customer return against original sale invoice.
      */
-    public function processCustomerReturn(Request $request): RedirectResponse
+    public function processCustomerReturn(Request $request): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'sale_id' => ['required', 'exists:sales,id'],
@@ -430,10 +487,19 @@ class InventoryController extends Controller
             );
 
             $condText = $validated['condition'] === 'resellable' ? 'Restocked to inventory' : 'Logged as damaged (not restocked)';
+            $msg = "Return processed for Invoice #{$sale->invoice_number} ({$validated['qty']} units of [{$product->name}] - {$condText}).";
 
-            return redirect()->route('inventory.returns')
-                ->with('success', "Return processed for Invoice #{$sale->invoice_number} ({$validated['qty']} units of [{$product->name}] - {$condText}).");
+            Cache::forget('inventory_valuation_summary');
+
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => true, 'message' => $msg]);
+            }
+
+            return redirect()->route('inventory.returns')->with('success', $msg);
         } catch (InvalidArgumentException $e) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+            }
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
     }
@@ -441,7 +507,7 @@ class InventoryController extends Controller
     /**
      * Process supplier return (Return to Vendor).
      */
-    public function processSupplierReturn(Request $request): RedirectResponse
+    public function processSupplierReturn(Request $request): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'product_id' => ['required', 'exists:products,id'],
@@ -468,9 +534,19 @@ class InventoryController extends Controller
                 date: $validated['date'] ?? null
             );
 
-            return redirect()->route('inventory.returns')
-                ->with('success', "Returned {$validated['qty']} units of [{$product->name}] to {$supplier->name} for vendor credit.");
+            Cache::forget('inventory_valuation_summary');
+
+            $msg = "Returned {$validated['qty']} units of [{$product->name}] to {$supplier->name} for vendor credit.";
+
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => true, 'message' => $msg]);
+            }
+
+            return redirect()->route('inventory.returns')->with('success', $msg);
         } catch (InvalidArgumentException $e) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+            }
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
     }
@@ -530,7 +606,7 @@ class InventoryController extends Controller
     /**
      * Configurable low-stock alert threshold update per product.
      */
-    public function updateThreshold(Request $request, Product $product): RedirectResponse
+    public function updateThreshold(Request $request, Product $product): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'low_stock_threshold' => ['required', 'integer', 'min:1'],
@@ -538,7 +614,12 @@ class InventoryController extends Controller
 
         $product->update(['low_stock_threshold' => $validated['low_stock_threshold']]);
 
-        return redirect()->back()
-            ->with('success', "Low-stock alert threshold for [{$product->name}] set to {$product->low_stock_threshold} units.");
+        $msg = "Low-stock alert threshold for [{$product->name}] set to {$product->low_stock_threshold} units.";
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => $msg]);
+        }
+
+        return redirect()->back()->with('success', $msg);
     }
 }

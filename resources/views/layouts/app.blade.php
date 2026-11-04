@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>@yield('title', 'SkinCare POS') — Luxury Retail Management</title>
+    <title>@yield('title', 'Élixir Botanique') — Clinical Skincare & Dispensary</title>
 
-    <!-- Google Fonts: Plus Jakarta Sans -->
+    <!-- Google Fonts: Plus Jakarta Sans (English), Battambang & Noto Sans Khmer (Khmer), Noto Sans SC (Chinese), Playfair Display (Serif Brand) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Battambang:wght@300;400;700;900&family=Noto+Sans+Khmer:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Bootstrap 5.3 & Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -32,15 +32,36 @@
             --radius-sm: 6px;
             --radius-md: 10px;
             --radius-lg: 14px;
+            --font-serif: 'Playfair Display', Georgia, Cambria, serif;
+            --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        }
+
+        .font-serif {
+            font-family: var(--font-serif) !important;
         }
 
         body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
             background-color: var(--bg-app);
             color: var(--text-main);
             margin: 0;
             overflow-x: hidden;
             font-size: 0.88rem;
+        }
+
+        html[lang="km"] body, .lang-km {
+            font-family: 'Battambang', 'Noto Sans Khmer', 'Kantumruy Pro', sans-serif !important;
+            line-height: 1.68;
+        }
+
+        html[lang="zh"] body, .lang-zh {
+            font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif !important;
+            line-height: 1.5;
+        }
+
+        html[lang="en"] body, .lang-en {
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif !important;
+            line-height: 1.5;
         }
 
         /* ─── PRINT OPTIMIZATIONS ─── */
@@ -106,11 +127,57 @@
             padding: 0 18px;
             display: flex;
             align-items: center;
-            gap: 12px;
             border-bottom: 1px solid var(--border-color);
             text-decoration: none;
             color: var(--text-main);
             flex-shrink: 0;
+            user-select: none;
+        }
+
+        #sidebar.collapsed .sidebar-brand {
+            padding: 0 !important;
+            justify-content: center !important;
+        }
+
+        .sidebar-brand-text {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .sidebar-brand-title {
+            font-family: var(--font-serif) !important;
+            font-size: 1.18rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            line-height: 1.12;
+            color: var(--text-main);
+            white-space: nowrap;
+        }
+
+        .sidebar-brand-tagline {
+            font-size: 0.58rem;
+            font-weight: 600;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-top: 3px;
+            white-space: nowrap;
+        }
+
+        .sidebar-brand-collapsed {
+            display: none;
+            font-family: var(--font-serif) !important;
+            font-size: 1.25rem;
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: 0.04em;
+            color: var(--text-main);
+            text-align: center;
+        }
+
+        #sidebar.collapsed .sidebar-brand-collapsed {
+            display: block !important;
         }
 
         .brand-icon-box {
@@ -270,12 +337,14 @@
         }
 
         .card-header-skincare {
-            padding: 14px 18px;
+            padding: clamp(10px, 2.5vw, 14px) clamp(12px, 3vw, 18px);
             background-color: transparent;
             border-bottom: 1px solid var(--border-color);
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
         }
 
         .btn-skincare-primary {
@@ -368,6 +437,33 @@
             }
         }
 
+        @media (max-width: 767.98px) {
+            #topbar {
+                padding: 0 12px !important;
+                height: 54px !important;
+            }
+            #main-content {
+                padding: 14px 12px !important;
+            }
+            .card-skincare {
+                margin-bottom: 14px !important;
+                border-radius: 8px !important;
+            }
+            .card-header-skincare {
+                padding: 10px 12px !important;
+                flex-wrap: wrap !important;
+                gap: 8px !important;
+            }
+            .table-skincare thead th {
+                padding: 8px 10px !important;
+                font-size: 0.7rem !important;
+            }
+            .table-skincare tbody td {
+                padding: 8px 10px !important;
+                font-size: 0.82rem !important;
+            }
+        }
+
         /* ─── STANDARDIZED TABLE STYLES ─── */
         .table-skincare {
             width: 100%;
@@ -442,10 +538,36 @@
             border-color: var(--primary);
             box-shadow: 0 0 0 0.2rem rgba(113, 133, 107, 0.18);
         }
+
+        /* ─── TOP PROGRESS BAR ─── */
+        #pos-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), #9DBF96);
+            z-index: 9999;
+            transition: width 0.25s ease, opacity 0.3s ease;
+            opacity: 0;
+            border-radius: 0 2px 2px 0;
+            box-shadow: 0 0 8px rgba(113, 133, 107, 0.5);
+        }
+        #pos-progress.active {
+            opacity: 1;
+        }
+
+        /* Soft content transition on AJAX page swap */
+        .pos-page-transition {
+            opacity: 0.6;
+            transition: opacity 0.15s ease;
+        }
     </style>
     @stack('styles')
 </head>
 <body>
+    <!-- Top Progress Bar -->
+    <div id="pos-progress"></div>
     <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
     <!-- Collapsible Role-Based Sidebar Navigation -->
@@ -535,6 +657,16 @@
             });
         }
 
+        // Auto-close sidebar on mobile navigation click
+        document.querySelectorAll('#sidebar .sidebar-link, #sidebar .sidebar-sub-link').forEach(link => {
+            link.addEventListener('click', function() {
+                if (window.innerWidth < 992) {
+                    sidebar.classList.remove('show-mobile');
+                    backdrop.classList.remove('show');
+                }
+            });
+        });
+
         // Language Switcher Helper
         function setAppLanguage(lang, label) {
             document.getElementById('currentLangLabel').innerText = lang.toUpperCase();
@@ -550,6 +682,385 @@
             }
         });
     </script>
-    @stack('scripts')
+
+    {{-- ═══════════════════════════════════════════════════════════════
+         UNIVERSAL FAST TURBO NAVIGATION & AJAX CRUD ENGINE
+         • Instant Turbo soft-navigation on page links & hover prefetching
+         • No white-screen flash, seamless opacity transitions
+         • Intercepts modal & inline CRUD forms for instant AJAX response
+         • In-place DOM update, active sidebar tracking, clean toasts
+    ═══════════════════════════════════════════════════════════════ --}}
+    <script>
+    (function () {
+        'use strict';
+
+        /* ── Progress bar helpers ── */
+        const bar = document.getElementById('pos-progress');
+        let barTimer;
+        function progressStart() {
+            if (!bar) return;
+            clearTimeout(barTimer);
+            bar.style.width = '0%';
+            bar.style.background = '';
+            bar.classList.add('active');
+            setTimeout(() => { if (bar) bar.style.width = '70%'; }, 20);
+        }
+        function progressDone() {
+            if (!bar) return;
+            bar.style.width = '100%';
+            barTimer = setTimeout(() => {
+                if (bar) {
+                    bar.classList.remove('active');
+                    bar.style.width = '0%';
+                }
+            }, 300);
+        }
+        function progressFail() {
+            if (!bar) return;
+            bar.style.background = '#E07070';
+            bar.style.width = '100%';
+            barTimer = setTimeout(() => {
+                if (bar) {
+                    bar.classList.remove('active');
+                    bar.style.width = '0%';
+                    bar.style.background = '';
+                }
+            }, 500);
+        }
+
+        /* ── Toast helper (delegates to SkinCareToast if available) ── */
+        function toast(type, msg) {
+            if (window.SkinCareToast && window.SkinCareToast[type]) {
+                window.SkinCareToast[type](msg);
+                return;
+            }
+            const el = document.createElement('div');
+            el.className = 'toast align-items-center border-0 text-white show m-2';
+            el.style.cssText = 'position:fixed;top:18px;right:18px;z-index:10000;min-width:280px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);background:' + (type === 'success' ? '#71856B' : '#D9534F');
+            el.innerHTML = '<div class="d-flex"><div class="toast-body">' + msg + '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 4000);
+        }
+
+        /* ── Spin button helper ── */
+        function spinBtn(btn, spinning) {
+            if (!btn) return;
+            if (spinning) {
+                btn.dataset.posOrigHtml = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Processing…';
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = btn.dataset.posOrigHtml || btn.innerHTML;
+            }
+        }
+
+        /* ── Clear existing field errors inside a form ── */
+        function clearErrors(form) {
+            form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+            form.querySelectorAll('.pos-field-error').forEach(el => el.remove());
+        }
+
+        /* ── Show inline 422 field errors ── */
+        function showErrors(form, errors) {
+            Object.entries(errors).forEach(([field, msgs]) => {
+                const safeName = field.replace(/\.([0-9]+)\./g, '[$1].').replace(/\.([0-9]+)$/, '[$1]');
+                const input = form.querySelector('[name="' + field + '"], [name="' + safeName + '"]');
+                if (input) {
+                    input.classList.add('is-invalid');
+                    const errEl = document.createElement('div');
+                    errEl.className = 'invalid-feedback pos-field-error d-block';
+                    errEl.textContent = Array.isArray(msgs) ? msgs[0] : msgs;
+                    input.parentNode.insertBefore(errEl, input.nextSibling);
+                }
+            });
+        }
+
+        /* ── Modal cleanup ── */
+        function cleanupModals() {
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('overflow');
+            document.body.style.removeProperty('padding-right');
+        }
+
+        /* ── Run scripts dynamically from fetched HTML ── */
+        function executeScripts(container) {
+            if (!container) return;
+            const scripts = container.querySelectorAll('script');
+            scripts.forEach(oldScript => {
+                const newScript = document.createElement('script');
+                Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+                newScript.textContent = oldScript.textContent;
+                oldScript.parentNode.replaceChild(newScript, oldScript);
+            });
+        }
+
+        /* ── Update active sidebar link ── */
+        function updateSidebarActive(newPath) {
+            document.querySelectorAll('#sidebar .sidebar-link, #sidebar .sidebar-sub-link').forEach(link => {
+                try {
+                    const linkUrl = new URL(link.href, window.location.origin);
+                    const isExact = (linkUrl.pathname === newPath);
+                    if (link.classList.contains('sidebar-link')) {
+                        link.classList.toggle('active', isExact);
+                    } else if (link.classList.contains('sidebar-sub-link')) {
+                        link.classList.toggle('active', isExact);
+                    }
+                } catch (e) {}
+            });
+        }
+
+        /* ── Prefetch cache map ── */
+        const prefetchCache = new Map();
+
+        function prefetchPage(url) {
+            if (prefetchCache.has(url)) return;
+            const fetchPromise = fetch(url, {
+                headers: { 'X-Requested-With': 'turbo-fetch', 'Cache-Control': 'max-age=60' }
+            }).then(r => r.ok ? r.text() : null).catch(() => null);
+            prefetchCache.set(url, fetchPromise);
+            setTimeout(() => prefetchCache.delete(url), 30000);
+        }
+
+        /* ── Soft page content refresh (no full reload, no white flash) ── */
+        function softRefresh(targetUrl = window.location.href, pushHistory = false) {
+            progressStart();
+            const mainEl = document.getElementById('main-content');
+            if (mainEl) mainEl.classList.add('pos-page-transition');
+
+            const fetchPromise = prefetchCache.get(targetUrl) || fetch(targetUrl, {
+                headers: { 'X-Requested-With': 'turbo-fetch', 'Cache-Control': 'no-cache' }
+            }).then(r => {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.text();
+            });
+
+            prefetchCache.delete(targetUrl);
+
+            fetchPromise
+                .then(html => {
+                    if (!html) throw new Error('Empty response');
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newMain = doc.getElementById('main-content');
+
+                    if (newMain && mainEl) {
+                        mainEl.innerHTML = newMain.innerHTML;
+                        mainEl.classList.remove('pos-page-transition');
+
+                        // Update title
+                        if (doc.title) document.title = doc.title;
+
+                        // Update topbar breadcrumb & page title
+                        const newBreadcrumb = doc.querySelector('.breadcrumb');
+                        const curBreadcrumb = document.querySelector('.breadcrumb');
+                        if (newBreadcrumb && curBreadcrumb) curBreadcrumb.innerHTML = newBreadcrumb.innerHTML;
+
+                        const newTitle = doc.querySelector('#topbar .fw-bold');
+                        const curTitle = document.querySelector('#topbar .fw-bold');
+                        if (newTitle && curTitle) curTitle.innerHTML = newTitle.innerHTML;
+
+                        // Push history if navigating to new page
+                        if (pushHistory && targetUrl !== window.location.href) {
+                            window.history.pushState({ url: targetUrl }, '', targetUrl);
+                        }
+
+                        // Update active sidebar link
+                        try {
+                            const parsedUrl = new URL(targetUrl, window.location.origin);
+                            updateSidebarActive(parsedUrl.pathname);
+                        } catch (e) {}
+
+                        // Sync new head styles
+                        try {
+                            doc.querySelectorAll('head style, head link[rel="stylesheet"]').forEach(s => {
+                                if (s.tagName.toLowerCase() === 'link' && s.href && document.querySelector(`link[href="${s.href}"]`)) return;
+                                document.head.appendChild(s.cloneNode(true));
+                            });
+                        } catch (e) {}
+
+                        // Execute page scripts
+                        const newPageScripts = doc.getElementById('page-scripts-container');
+                        const curPageScripts = document.getElementById('page-scripts-container');
+                        if (newPageScripts && curPageScripts) {
+                            curPageScripts.innerHTML = newPageScripts.innerHTML;
+                            executeScripts(curPageScripts);
+                        }
+
+                        // Also execute any scripts inside #main-content
+                        executeScripts(mainEl);
+
+                        // Re-init Bootstrap tooltips
+                        mainEl.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+
+                        // Re-attach engine to new forms
+                        attachEngine();
+
+                        // Fire app page loaded event
+                        document.dispatchEvent(new CustomEvent('app:page-loaded', { detail: { url: targetUrl } }));
+
+                        // Scroll to top
+                        window.scrollTo({ top: 0, behavior: 'instant' });
+                    } else {
+                        window.location.href = targetUrl;
+                    }
+                    progressDone();
+                })
+                .catch(() => {
+                    progressFail();
+                    window.location.href = targetUrl;
+                });
+        }
+
+        /* ── Core AJAX submit handler for CRUD forms ── */
+        function handleFormSubmit(e) {
+            const form = e.currentTarget;
+            if (form.dataset.skipAjax) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            clearErrors(form);
+
+            const submitBtn = form.querySelector('[type="submit"]') || form.querySelector('button:not([type="button"])');
+            spinBtn(submitBtn, true);
+            progressStart();
+
+            const method = (form.method || 'POST').toUpperCase();
+            const action = form.action;
+            const fd = new FormData(form);
+
+            fetch(action, {
+                method: method,
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                },
+                body: fd,
+            })
+            .then(async (res) => {
+                let data;
+                try { data = await res.json(); } catch { data = {}; }
+
+                if (res.ok || res.status === 201) {
+                    progressDone();
+                    spinBtn(submitBtn, false);
+
+                    // Close any open Bootstrap modal
+                    const modalEl = form.closest('.modal');
+                    if (modalEl) {
+                        const bsModal = bootstrap.Modal.getInstance(modalEl);
+                        if (bsModal) bsModal.hide();
+                        setTimeout(cleanupModals, 200);
+                    }
+
+                    const msg = data.message || 'Action completed successfully.';
+                    toast('success', msg);
+
+                    // Soft-refresh the page content
+                    softRefresh();
+
+                } else if (res.status === 422) {
+                    progressFail();
+                    spinBtn(submitBtn, false);
+                    const msg = data.message || 'Please fix the errors below.';
+                    toast('error', msg);
+                    if (data.errors) showErrors(form, data.errors);
+
+                } else {
+                    progressFail();
+                    spinBtn(submitBtn, false);
+                    const msg = data.message || 'An unexpected error occurred. Please try again.';
+                    toast('error', msg);
+                }
+            })
+            .catch(() => {
+                progressFail();
+                spinBtn(submitBtn, false);
+                toast('error', 'Network error. Please check your connection.');
+            });
+        }
+
+        /* ── Turbo Soft Navigation Click & Hover Interceptor ── */
+        function attachNavigation() {
+            document.addEventListener('click', function (e) {
+                const link = e.target.closest('a[href]');
+                if (!link) return;
+
+                const href = link.getAttribute('href');
+                if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
+                if (link.target === '_blank' || link.hasAttribute('download') || link.dataset.skipTurbo === 'true') return;
+
+                try {
+                    const targetUrl = new URL(link.href, window.location.origin);
+                    if (targetUrl.origin !== window.location.origin) return;
+
+                    // Don't intercept logout, API, or language switch routes
+                    if (targetUrl.pathname === '/logout' || targetUrl.pathname.startsWith('/api/') || targetUrl.pathname.startsWith('/language/')) return;
+
+                    e.preventDefault();
+                    softRefresh(targetUrl.href, true);
+                } catch (err) {}
+            });
+
+            // Hover prefetch for instantaneous navigation
+            document.addEventListener('mouseover', function (e) {
+                const link = e.target.closest('a[href]');
+                if (!link) return;
+                const href = link.getAttribute('href');
+                if (!href || href.startsWith('#') || link.target === '_blank' || link.dataset.skipTurbo === 'true' || href.includes('/language/')) return;
+
+                try {
+                    const targetUrl = new URL(link.href, window.location.origin);
+                    if (targetUrl.origin === window.location.origin && targetUrl.pathname !== window.location.pathname) {
+                        prefetchPage(targetUrl.href);
+                    }
+                } catch (err) {}
+            }, { passive: true });
+
+            // Handle Browser Back / Forward buttons
+            window.addEventListener('popstate', function () {
+                softRefresh(window.location.href, false);
+            });
+        }
+
+        /* ── Attach engine to forms ── */
+        function attachEngine() {
+            // Modal forms (create / edit / delete)
+            document.querySelectorAll('.modal form:not([data-skip-ajax])').forEach(form => {
+                if (!form.dataset.posEngineAttached) {
+                    form.dataset.posEngineAttached = '1';
+                    form.addEventListener('submit', handleFormSubmit);
+                }
+            });
+
+            // Standalone quick-action forms outside modals (toggle status, inline actions)
+            document.querySelectorAll('form.pos-quick-form:not([data-skip-ajax]), .pos-quick-action form:not([data-skip-ajax])').forEach(form => {
+                if (!form.dataset.posEngineAttached) {
+                    form.dataset.posEngineAttached = '1';
+                    form.addEventListener('submit', handleFormSubmit);
+                }
+            });
+        }
+
+        // Initial attach
+        document.addEventListener('DOMContentLoaded', function () {
+            attachEngine();
+            attachNavigation();
+        });
+
+        document.addEventListener('shown.bs.modal', attachEngine);
+
+        // Expose helpers globally
+        window.posAttachEngine = attachEngine;
+        window.posSoftRefresh = softRefresh;
+        window.posToast = toast;
+    })();
+    </script>
+    <div id="page-scripts-container">
+        @stack('scripts')
+    </div>
 </body>
 </html>

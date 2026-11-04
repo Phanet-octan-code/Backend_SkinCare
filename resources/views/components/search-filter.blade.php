@@ -24,10 +24,10 @@
 
         <div class="col-12 col-md-auto ms-md-auto d-flex gap-2">
             <button type="submit" class="btn btn-sm btn-skincare-primary">
-                <i class="bi bi-funnel me-1"></i> Filter
+                <i class="bi bi-funnel me-1"></i> {{ __('messages.filter') }}
             </button>
             @if($resetUrl && count(request()->except(['page'])) > 0)
-                <a href="{{ $resetUrl }}" class="btn btn-sm btn-skincare-outline" title="Reset Filters">
+                <a href="{{ $resetUrl }}" class="btn btn-sm btn-skincare-outline" title="{{ __('messages.reset_filters') }}">
                     <i class="bi bi-x-circle"></i>
                 </a>
             @endif

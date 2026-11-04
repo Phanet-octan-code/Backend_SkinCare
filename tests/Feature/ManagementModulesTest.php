@@ -219,7 +219,7 @@ class ManagementModulesTest extends TestCase
         $this->assertDatabaseHas('suppliers', ['id' => $supp->id]);
 
         // Remove product and delete supplier cleanly
-        $prod->delete();
+        $prod->forceDelete();
         $successDelete = $this->delete("/suppliers/{$supp->id}");
         $successDelete->assertRedirect('/suppliers');
         $successDelete->assertSessionHas('success');
@@ -467,11 +467,11 @@ class ManagementModulesTest extends TestCase
         $showJsonResponse->assertStatus(200);
         $showJsonResponse->assertJsonFragment(['name' => 'Peptide Multi-Barrier Complex Pro']);
 
-        // 8. Safe Deletion Guard: Product has stock transaction, so deletion is protected
-        $blockedDelete = $this->delete("/products/{$product->id}");
-        $blockedDelete->assertRedirect('/products');
-        $blockedDelete->assertSessionHas('error');
-        $this->assertDatabaseHas('products', ['id' => $product->id]);
+        // 8. Safe Soft Deletion: Product is soft deleted and marked trashed while protecting historical audit trail
+        $successDelete = $this->delete("/products/{$product->id}");
+        $successDelete->assertRedirect('/products');
+        $successDelete->assertSessionHas('success');
+        $this->assertSoftDeleted('products', ['id' => $product->id]);
 
         // Clean up test file and database records
         if ($product->image && File::exists(public_path($product->image))) {
@@ -479,7 +479,36 @@ class ManagementModulesTest extends TestCase
         }
         $txn->delete();
         $stock->delete();
-        $product->delete();
+        $product->forceDelete();
+    }
+
+    public function test_product_store_via_ajax_or_json_response(): void
+    {
+        $this->actingAs($this->admin);
+
+        $response = $this->postJson('/products', [
+            'name' => 'Ceramide Barrier Cream',
+            'barcode' => 'CERAMIDE_CREAM_777',
+            'category_id' => $this->category->id,
+            'supplier_id' => $this->supplier->id,
+            'cost_price' => 12.00,
+            'sale_price' => 28.00,
+            'qty' => 10,
+            'low_stock_threshold' => 5,
+            'status' => 'active',
+            'description' => 'Rich barrier repair moisturizer',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+        ]);
+        $response->assertJsonPath('product.barcode', 'CERAMIDE_CREAM_777');
+
+        $this->assertDatabaseHas('products', [
+            'barcode' => 'CERAMIDE_CREAM_777',
+            'name' => 'Ceramide Barrier Cream',
+        ]);
     }
 
     // ==========================================

@@ -21,83 +21,103 @@ class PosController extends Controller
         protected CheckoutService $checkoutService
     ) {}
 
+    public static function clearPosCaches(): void
+    {
+        \Illuminate\Support\Facades\Cache::forget('pos_terminal_catalog_bundle');
+        \Illuminate\Support\Facades\Cache::forget('pos_catalog_products');
+        \Illuminate\Support\Facades\Cache::forget('topbar_low_stock_alerts');
+        \Illuminate\Support\Facades\Cache::forget('products_catalog_counts');
+    }
+
     /**
      * Display the full-featured, responsive POS Terminal interface.
      * Authorized for: Admin, Manager, Cashier.
      */
     public function index(): View
     {
-        $categories = Category::where('status', 'active')->orderBy('name')->get();
+        $locale = app()->getLocale();
+        $bundle = \Illuminate\Support\Facades\Cache::remember('pos_terminal_catalog_bundle_' . $locale, 60, function () {
+            $categories = Category::where('status', 'active')->orderBy('name')->get();
 
-        $products = Product::with([
-                'category',
-                'promotions' => fn($q) => $q->active(),
-            ])
-            ->where('status', 'active')
-            ->orderBy('name')
-            ->get();
+            $products = Product::with([
+                    'category',
+                    'promotions' => fn($q) => $q->active(),
+                ])
+                ->where('status', 'active')
+                ->orderBy('name')
+                ->get();
 
-        $customers = Customer::where('status', 'active')
-            ->orderBy('name')
-            ->get();
+            $customers = Customer::where('status', 'active')
+                ->orderBy('name')
+                ->get();
 
-        $promotions = Promotion::active()
-            ->with('products')
-            ->get();
+            $promotions = Promotion::active()
+                ->with('products')
+                ->get();
 
-        // Prepare client-side payload for instant barcode scanning and search
-        $catalogPayload = $products->map(function ($p) {
-            $bestPromo = null;
-            $bestDiscountText = null;
+            // Prepare client-side payload for instant barcode scanning and search
+            $catalogPayload = $products->map(function ($p) {
+                $bestPromo = null;
+                $bestDiscountText = null;
 
-            if ($p->promotions->isNotEmpty()) {
-                $firstPromo = $p->promotions->first();
-                $bestPromo = [
-                    'id' => $firstPromo->id,
-                    'name' => $firstPromo->name,
-                    'discount_type' => $firstPromo->discount_type,
-                    'discount_value' => (float) $firstPromo->discount_value,
+                if ($p->promotions->isNotEmpty()) {
+                    $firstPromo = $p->promotions->first();
+                    $bestPromo = [
+                        'id' => $firstPromo->id,
+                        'name' => $firstPromo->name,
+                        'discount_type' => $firstPromo->discount_type,
+                        'discount_value' => (float) $firstPromo->discount_value,
+                    ];
+                    $bestDiscountText = $firstPromo->discount_type === 'percentage'
+                        ? (int) $firstPromo->discount_value . '% ' . __('messages.off')
+                        : '$' . number_format($firstPromo->discount_value, 2) . ' ' . __('messages.off');
+                }
+
+                return [
+                    'id' => $p->id,
+                    'name' => $p->name,
+                    'barcode' => $p->barcode,
+                    'price' => (float) $p->sale_price,
+                    'cost_price' => (float) $p->cost_price,
+                    'qty' => (int) $p->qty,
+                    'category_id' => $p->category_id,
+                    'category_name' => $p->category ? $p->category->localized_name : __('messages.general'),
+                    'image' => $p->image,
+                    'low_stock_threshold' => (int) $p->low_stock_threshold,
+                    'is_low_stock' => $p->isLowStock(),
+                    'promo' => $bestPromo,
+                    'promo_text' => $bestDiscountText,
                 ];
-                $bestDiscountText = $firstPromo->discount_type === 'percentage'
-                    ? (int) $firstPromo->discount_value . '% OFF'
-                    : '$' . number_format($firstPromo->discount_value, 2) . ' OFF';
-            }
+            });
+
+            $customersPayload = $customers->map(function ($c) {
+                return [
+                    'id' => $c->id,
+                    'name' => $c->name,
+                    'phone' => $c->phone,
+                    'membership_level' => $c->membership_level ?? 'Standard',
+                    'membership_number' => $c->membership_number,
+                    'discount_percentage' => (float) $c->membership_discount_percentage,
+                ];
+            });
 
             return [
-                'id' => $p->id,
-                'name' => $p->name,
-                'barcode' => $p->barcode,
-                'price' => (float) $p->sale_price,
-                'cost_price' => (float) $p->cost_price,
-                'qty' => (int) $p->qty,
-                'category_id' => $p->category_id,
-                'category_name' => $p->category ? $p->category->name : 'Unassigned',
-                'image' => $p->image,
-                'low_stock_threshold' => (int) $p->low_stock_threshold,
-                'is_low_stock' => $p->isLowStock(),
-                'promo' => $bestPromo,
-                'promo_text' => $bestDiscountText,
-            ];
-        });
-
-        $customersPayload = $customers->map(function ($c) {
-            return [
-                'id' => $c->id,
-                'name' => $c->name,
-                'phone' => $c->phone,
-                'membership_level' => $c->membership_level ?? 'Standard',
-                'membership_number' => $c->membership_number,
-                'discount_percentage' => (float) $c->membership_discount_percentage,
+                'categories' => $categories,
+                'products' => $products,
+                'catalogPayload' => $catalogPayload,
+                'customers' => $customers,
+                'customersPayload' => $customersPayload,
+                'promotions' => $promotions,
             ];
         });
 
         return view('pos.index', [
-            'categories' => $categories,
-            'products' => $products,
-            'catalogPayload' => $catalogPayload,
-            'customers' => $customers,
-            'customersPayload' => $customersPayload,
-            'promotions' => $promotions,
+            'categories' => $bundle['categories'],
+            'products' => $bundle['products'],
+            'catalogPayload' => $bundle['catalogPayload'],
+            'customers' => $bundle['customers'],
+            'customersPayload' => $bundle['customersPayload'],
+            'promotions' => $bundle['promotions'],
             'taxRate' => (float) Setting::get('tax_rate', 5.0),
             'currency' => Setting::get('currency', 'USD'),
             'currencySymbol' => Setting::currencySymbol(),
@@ -133,6 +153,7 @@ class PosController extends Controller
             );
 
             $sale = $result['sale'];
+            self::clearPosCaches();
 
             return response()->json([
                 'success' => true,

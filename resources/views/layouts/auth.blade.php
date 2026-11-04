@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>@yield('title', 'Sign In') — SkinCare POS</title>
+    <title>@yield('title', 'Sign In') — Élixir Botanique</title>
 
-    <!-- Google Fonts: Plus Jakarta Sans -->
+    <!-- Google Fonts: Plus Jakarta Sans (English), Battambang & Noto Sans Khmer (Khmer), Noto Sans SC (Chinese), Playfair Display (Serif) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Battambang:wght@300;400;700;900&family=Noto+Sans+Khmer:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Bootstrap 5.3 & Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -29,10 +29,16 @@
             --border-radius: 12px;
             --shadow-subtle: 0 4px 20px rgba(37, 43, 37, 0.05);
             --shadow-hover: 0 10px 30px rgba(37, 43, 37, 0.08);
+            --font-serif: 'Playfair Display', Georgia, Cambria, serif;
+            --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        }
+
+        .font-serif {
+            font-family: var(--font-serif) !important;
         }
 
         body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
             background-color: var(--bg-app);
             color: var(--text-main);
             min-height: 100vh;
@@ -41,6 +47,21 @@
             justify-content: center;
             margin: 0;
             padding: 24px;
+        }
+
+        html[lang="km"] body, .lang-km {
+            font-family: 'Battambang', 'Noto Sans Khmer', 'Kantumruy Pro', sans-serif !important;
+            line-height: 1.68;
+        }
+
+        html[lang="zh"] body, .lang-zh {
+            font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif !important;
+            line-height: 1.5;
+        }
+
+        html[lang="en"] body, .lang-en {
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif !important;
+            line-height: 1.5;
         }
 
         .auth-card {

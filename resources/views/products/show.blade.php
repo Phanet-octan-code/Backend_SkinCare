@@ -24,7 +24,9 @@
     <div class="col-12 col-lg-4">
         <div class="card-skincare p-4 text-center">
             @if($product->image && file_exists(public_path($product->image)))
-                <img src="{{ asset($product->image) }}" alt="{{ $product->name }}" class="img-fluid rounded-3 border mb-3 object-fit-cover shadow-xs" style="max-height: 280px;">
+                <div class="p-3 border rounded-3 mb-3" style="background-color: #F8F9F7; display: flex; align-items: center; justify-content: center; min-height: 260px;">
+                    <img src="{{ asset($product->image) }}" alt="{{ $product->name }}" class="img-fluid rounded-2 shadow-xs" style="max-height: 260px; width: auto; max-width: 100%; object-fit: contain;">
+                </div>
             @else
                 <div class="brand-icon-box mx-auto my-4" style="width: 80px; height: 80px; font-size: 2.5rem;">
                     <i class="bi bi-droplet-half"></i>

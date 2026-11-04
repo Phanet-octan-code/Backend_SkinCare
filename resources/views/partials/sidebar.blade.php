@@ -1,23 +1,16 @@
 <aside id="sidebar">
-    <!-- Brand Identity & Logo -->
+    <!-- Brand Identity (No Logo Icon - Clean Editorial Wordmark) -->
     <a href="{{ route('dashboard') }}" class="sidebar-brand">
-        @php
-            $brandLogo = \App\Models\Setting::get('business_logo');
-        @endphp
-        @if(!empty($brandLogo) && file_exists(public_path($brandLogo)))
-            <img src="{{ asset($brandLogo) }}" alt="Logo" class="rounded" style="width: 36px; height: 36px; object-fit: contain;">
-        @else
-            <div class="brand-icon-box">
-                <i class="bi bi-flower1"></i>
+        <div class="sidebar-brand-text d-flex flex-column justify-content-center">
+            <div class="sidebar-brand-title" title="Élixir Botanique">
+                ÉLIXIR <span style="color: var(--primary); font-weight: 400;">BOTANIQUE</span>
             </div>
-        @endif
-        <div class="sidebar-brand-text">
-            <div class="fw-bold fs-6 mb-0 text-truncate" style="letter-spacing: -0.3px; max-width: 175px;">
-                {{ \App\Models\Setting::get('business_name', 'SkinCare POS') }}
-            </div>
-            <div class="text-muted text-truncate" style="font-size: 0.7rem; max-width: 175px;">
+            <div class="sidebar-brand-tagline text-truncate" title="{{ __('messages.app_subtitle') }}">
                 {{ __('messages.app_subtitle') }}
             </div>
+        </div>
+        <div class="sidebar-brand-collapsed font-serif" title="Élixir Botanique">
+            É<span style="color: var(--primary); font-weight: 400;">B</span>
         </div>
     </a>
 
@@ -38,6 +31,7 @@
             <li class="sidebar-menu-item">
                 <a href="{{ route('pos.index') }}" 
                    class="sidebar-link {{ request()->routeIs('pos.*') ? 'active' : '' }}"
+                   data-skip-turbo="true"
                    data-bs-toggle="tooltip" data-bs-placement="right" title="{{ __('messages.pos_terminal') }}">
                     <i class="bi bi-cart3 text-success"></i>
                     <span class="nav-label fw-bold">{{ __('messages.pos_terminal') }}</span>

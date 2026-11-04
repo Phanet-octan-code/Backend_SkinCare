@@ -186,7 +186,7 @@
                 </button>
 
                 <!-- Toggle Status Button -->
-                <form method="POST" action="{{ route('promotions.toggle-status', $promo) }}" class="d-inline">
+                <form method="POST" action="{{ route('promotions.toggle-status', $promo) }}" class="d-inline pos-quick-form">
                     @csrf
                     @method('PATCH')
                     <button type="submit" 

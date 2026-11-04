@@ -1,9 +1,9 @@
 @php
-    $bizName = \App\Models\Setting::get('business_name', 'SKINCARE BOUTIQUE');
+    $bizName = \App\Models\Setting::get('business_name', 'ÉLIXIR BOTANIQUE');
     $bizAddress = \App\Models\Setting::get('business_address', '128 Rue Pasteur, Suite 04');
     $bizPhone = \App\Models\Setting::get('business_phone', '+855 23 888 999');
     $bizLogo = \App\Models\Setting::get('business_logo');
-    $receiptFooter = \App\Models\Setting::get('receipt_footer', "Thank you for shopping at SkinCare POS Luxury Boutique!\nPlease retain receipt for exchange within 14 days.\nVisit us online: www.skincare-boutique.com");
+    $receiptFooter = \App\Models\Setting::get('receipt_footer', "Thank you for shopping at Élixir Botanique Dispensary!\nPlease retain receipt for exchange within 14 days.\nVisit us online: www.elixirbotanique.com");
     $saleCurrency = $sale->currency ?? 'USD';
     $rateKhr = (float) ($sale->exchange_rate > 0 ? $sale->exchange_rate : \App\Models\Setting::get('exchange_rate_khr', 4100.0));
 @endphp

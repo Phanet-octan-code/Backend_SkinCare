@@ -35,12 +35,14 @@ return [
         'sqlite' => [
             'driver' => 'sqlite',
             'url' => env('DB_URL'),
-            'database' => (str_ends_with(env('DB_DATABASE', ''), '.sqlite') || env('DB_CONNECTION') === 'sqlite') 
-                ? (env('DB_DATABASE') && str_ends_with(env('DB_DATABASE'), '.sqlite') ? env('DB_DATABASE') : database_path('database.sqlite'))
-                : database_path('database.sqlite'),
+            'database' => env('DB_DATABASE') === ':memory:'
+                ? ':memory:'
+                : ((str_ends_with(env('DB_DATABASE', ''), '.sqlite') || env('DB_CONNECTION') === 'sqlite') 
+                    ? (env('DB_DATABASE') && str_ends_with(env('DB_DATABASE'), '.sqlite') ? env('DB_DATABASE') : database_path('database.sqlite'))
+                    : database_path('database.sqlite')),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
-            'busy_timeout' => null,
+            'busy_timeout' => 5000,
             'journal_mode' => null,
             'synchronous' => null,
             'transaction_mode' => 'DEFERRED',
@@ -100,6 +102,10 @@ return [
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
             'prepared_statements' => false,
+            'options' => [
+                \PDO::ATTR_PERSISTENT => true,
+                \PDO::ATTR_TIMEOUT => 10,
+            ],
         ],
 
         'sqlsrv' => [

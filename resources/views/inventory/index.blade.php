@@ -136,9 +136,9 @@
         <td class="ps-4">
             <div class="d-flex align-items-center gap-2">
                 @if($product->image && file_exists(public_path($product->image)))
-                    <img src="{{ asset($product->image) }}" alt="{{ $product->name }}" class="rounded-2 border object-fit-cover shadow-xs" style="width: 36px; height: 36px;">
+                    <img src="{{ asset($product->image) }}" alt="{{ $product->name }}" class="rounded-2 border shadow-xs" style="width: 42px; height: 42px; object-fit: contain; background-color: #F8F9F7; padding: 2px;">
                 @else
-                    <span class="brand-icon-box" style="width: 36px; height: 36px; font-size: 1.05rem;">
+                    <span class="brand-icon-box" style="width: 42px; height: 42px; font-size: 1.15rem;">
                         <i class="bi bi-droplet-half"></i>
                     </span>
                 @endif

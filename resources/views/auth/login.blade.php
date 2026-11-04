@@ -5,11 +5,12 @@
 @section('content')
 <div class="auth-card p-4 p-md-5">
     <div class="text-center mb-4">
-        <div class="brand-badge mx-auto">
-            <i class="bi bi-flower1"></i>
-        </div>
-        <h4 class="fw-bold mb-1" style="color: var(--text-main); letter-spacing: -0.5px;">SkinCare POS</h4>
-        <p class="text-muted small mb-0">Retail Management & POS System</p>
+        <h3 class="mb-1" style="font-family: var(--font-serif); font-size: 1.7rem; font-weight: 600; letter-spacing: 0.04em; color: var(--text-main);">
+            ÉLIXIR <span style="color: var(--primary); font-weight: 400;">BOTANIQUE</span>
+        </h3>
+        <p class="text-muted small mb-0" style="font-size: 0.65rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;">
+            {{ __('messages.app_subtitle') }}
+        </p>
     </div>
 
     @if (session('status'))

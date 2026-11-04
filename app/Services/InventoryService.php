@@ -44,9 +44,11 @@ class InventoryService
             $stock = Stock::where('product_id', $productId)->lockForUpdate()->first();
 
             if (!$stock) {
+                $productRow = Product::find($productId);
+                $initialQty = $productRow ? (int) $productRow->qty : 0;
                 $stock = Stock::create([
                     'product_id' => $productId,
-                    'qty' => 0,
+                    'qty' => $initialQty,
                 ]);
             }
 
@@ -453,27 +455,33 @@ class InventoryService
      */
     public function calculateValuationSummary(): array
     {
-        $stats = Product::join('stocks', 'products.id', '=', 'stocks.product_id')
-            ->selectRaw('
-                SUM(stocks.qty * products.cost_price) as total_cost_value,
-                SUM(stocks.qty * products.sale_price) as total_retail_value,
-                SUM(stocks.qty) as total_units
-            ')->first();
+        return \Illuminate\Support\Facades\Cache::remember('inventory_valuation_summary', 60, function () {
+            $stats = Product::join('stocks', 'products.id', '=', 'stocks.product_id')
+                ->selectRaw('
+                    SUM(stocks.qty * products.cost_price) as total_cost_value,
+                    SUM(stocks.qty * products.sale_price) as total_retail_value,
+                    SUM(stocks.qty) as total_units,
+                    COUNT(products.id) as total_skus,
+                    COUNT(CASE WHEN products.qty <= products.low_stock_threshold AND products.qty > 0 THEN 1 END) as low_stock_count,
+                    COUNT(CASE WHEN products.qty <= 0 THEN 1 END) as out_of_stock_count,
+                    COUNT(CASE WHEN products.qty > products.low_stock_threshold THEN 1 END) as in_stock_count
+                ')->first();
 
-        $totalCostValue = (float) ($stats->total_cost_value ?? 0);
-        $totalRetailValue = (float) ($stats->total_retail_value ?? 0);
-        $totalUnits = (int) ($stats->total_units ?? 0);
-        $potentialProfit = max(0, $totalRetailValue - $totalCostValue);
+            $totalCostValue = (float) ($stats->total_cost_value ?? 0);
+            $totalRetailValue = (float) ($stats->total_retail_value ?? 0);
+            $totalUnits = (int) ($stats->total_units ?? 0);
+            $potentialProfit = max(0, $totalRetailValue - $totalCostValue);
 
-        return [
-            'total_cost_value' => $totalCostValue,
-            'total_retail_value' => $totalRetailValue,
-            'potential_profit' => $potentialProfit,
-            'total_units' => $totalUnits,
-            'total_skus' => Product::count(),
-            'low_stock_count' => Product::whereRaw('qty <= low_stock_threshold')->where('qty', '>', 0)->count(),
-            'out_of_stock_count' => Product::where('qty', '<=', 0)->count(),
-            'in_stock_count' => Product::whereRaw('qty > low_stock_threshold')->count(),
-        ];
+            return [
+                'total_cost_value' => $totalCostValue,
+                'total_retail_value' => $totalRetailValue,
+                'potential_profit' => $potentialProfit,
+                'total_units' => $totalUnits,
+                'total_skus' => (int) ($stats->total_skus ?? 0),
+                'low_stock_count' => (int) ($stats->low_stock_count ?? 0),
+                'out_of_stock_count' => (int) ($stats->out_of_stock_count ?? 0),
+                'in_stock_count' => (int) ($stats->in_stock_count ?? 0),
+            ];
+        });
     }
 }

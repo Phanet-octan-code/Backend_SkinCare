@@ -3,26 +3,68 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
-class Customer extends Model
+class Customer extends Authenticatable
 {
-    use HasFactory;
+    use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
         'name',
         'phone',
         'email',
+        'password',
         'address',
         'membership_number',
         'membership_level',
         'status',
     ];
 
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'password' => 'hashed',
+        ];
+    }
+
     public function sales(): HasMany
     {
         return $this->hasMany(Sale::class);
+    }
+
+    public function addresses(): HasMany
+    {
+        return $this->hasMany(CustomerAddress::class);
+    }
+
+    public function wishlists(): HasMany
+    {
+        return $this->hasMany(CustomerWishlist::class);
+    }
+
+    public function wishlistProducts(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'customer_wishlists')
+            ->withTimestamps();
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(ProductReview::class);
+    }
+
+    public function cartItems(): HasMany
+    {
+        return $this->hasMany(CartItem::class);
     }
 
     public function scopeActive($query)
@@ -50,3 +92,4 @@ class Customer extends Model
         return $this->sales()->where('payment_status', 'paid')->count();
     }
 }
+

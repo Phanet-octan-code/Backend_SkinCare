@@ -15,6 +15,8 @@ use Tests\TestCase;
 
 class SharedUiLayoutAndComponentsTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected User $admin;
     protected User $cashier;
 

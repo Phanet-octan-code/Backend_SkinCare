@@ -5,13 +5,22 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\Promotion;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class PromotionController extends Controller
 {
+    public static function clearPromotionCaches(): void
+    {
+        Cache::forget('pos_catalog_products');
+        // Clear counts cache pattern
+        Cache::forget('promotions_counts_' . Carbon::today()->toDateString());
+    }
+
     /**
      * Display promotions & discounts listing with date status tabs and search.
      * Authorized for: Admin, Manager.
@@ -39,30 +48,41 @@ class PromotionController extends Controller
 
         $promotions = $query->latest()->paginate(12)->withQueryString();
 
-        // Calculate count metrics for tab badges
-        $counts = [
-            'all' => Promotion::count(),
-            'active' => Promotion::where('status', 'active')
-                ->whereDate('start_date', '<=', $today)
-                ->whereDate('end_date', '>=', $today)
-                ->count(),
-            'scheduled' => Promotion::whereDate('start_date', '>', $today)->count(),
-            'expired' => Promotion::whereDate('end_date', '<', $today)->count(),
-            'inactive' => Promotion::where('status', 'inactive')->count(),
-        ];
+        // Calculate count metrics in one single SQL query and cache
+        $counts = Cache::remember('promotions_counts_' . $today, 60, function () use ($today) {
+            $row = Promotion::selectRaw("
+                COUNT(*) as all_count,
+                COUNT(CASE WHEN status = 'active' AND start_date <= '{$today}' AND end_date >= '{$today}' THEN 1 END) as active_count,
+                COUNT(CASE WHEN start_date > '{$today}' THEN 1 END) as scheduled_count,
+                COUNT(CASE WHEN end_date < '{$today}' THEN 1 END) as expired_count,
+                COUNT(CASE WHEN status = 'inactive' THEN 1 END) as inactive_count
+            ")->first();
+
+            return [
+                'all' => (int) ($row->all_count ?? 0),
+                'active' => (int) ($row->active_count ?? 0),
+                'scheduled' => (int) ($row->scheduled_count ?? 0),
+                'expired' => (int) ($row->expired_count ?? 0),
+                'inactive' => (int) ($row->inactive_count ?? 0),
+            ];
+        });
+
+        $products = Cache::remember('active_products_compact', 60, function () {
+            return Product::where('status', 'active')->select(['id', 'name', 'barcode'])->orderBy('name')->get();
+        });
 
         return view('promotions.index', [
             'promotions' => $promotions,
             'counts' => $counts,
             'activeTab' => $tab,
-            'products' => Product::where('status', 'active')->orderBy('name')->get(),
+            'products' => $products,
         ]);
     }
 
     /**
      * Store a newly created promotion campaign.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): RedirectResponse|JsonResponse
     {
         $validated = $this->validatePromotion($request);
 
@@ -82,6 +102,16 @@ class PromotionController extends Controller
             $promotion->products()->sync($productIds);
         }
 
+        self::clearPromotionCaches();
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Promotion '{$promotion->name}' created successfully.",
+                'promotion' => $promotion,
+            ]);
+        }
+
         return redirect()->route('promotions.index')
             ->with('success', "Promotion '{$promotion->name}' created successfully.");
     }
@@ -89,7 +119,7 @@ class PromotionController extends Controller
     /**
      * Update an existing promotion campaign.
      */
-    public function update(Request $request, Promotion $promotion): RedirectResponse
+    public function update(Request $request, Promotion $promotion): RedirectResponse|JsonResponse
     {
         $validated = $this->validatePromotion($request, $promotion->id);
 
@@ -111,6 +141,16 @@ class PromotionController extends Controller
             $promotion->products()->detach();
         }
 
+        self::clearPromotionCaches();
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Promotion '{$promotion->name}' updated successfully.",
+                'promotion' => $promotion,
+            ]);
+        }
+
         return redirect()->route('promotions.index')
             ->with('success', "Promotion '{$promotion->name}' updated successfully.");
     }
@@ -118,10 +158,19 @@ class PromotionController extends Controller
     /**
      * Toggle active/inactive status.
      */
-    public function toggleStatus(Promotion $promotion): RedirectResponse
+    public function toggleStatus(Promotion $promotion): RedirectResponse|JsonResponse
     {
         $newStatus = $promotion->status === 'active' ? 'inactive' : 'active';
         $promotion->update(['status' => $newStatus]);
+        self::clearPromotionCaches();
+
+        if (request()->wantsJson() || request()->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Promotion '{$promotion->name}' status changed to " . ucfirst($newStatus) . '.',
+                'status' => $newStatus,
+            ]);
+        }
 
         return redirect()->route('promotions.index')
             ->with('success', "Promotion '{$promotion->name}' status changed to " . ucfirst($newStatus) . '.');
@@ -130,11 +179,19 @@ class PromotionController extends Controller
     /**
      * Delete a promotion and detach product associations.
      */
-    public function destroy(Promotion $promotion): RedirectResponse
+    public function destroy(Promotion $promotion): RedirectResponse|JsonResponse
     {
         $promoName = $promotion->name;
         $promotion->products()->detach();
         $promotion->delete();
+        self::clearPromotionCaches();
+
+        if (request()->wantsJson() || request()->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Promotion '{$promoName}' deleted successfully.",
+            ]);
+        }
 
         return redirect()->route('promotions.index')
             ->with('success', "Promotion '{$promoName}' deleted successfully.");

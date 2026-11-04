@@ -20,6 +20,19 @@ class Promotion extends Model
         'status',
     ];
 
+    protected static function booted(): void
+    {
+        static::saved(function () {
+            \Illuminate\Support\Facades\Cache::forget('storefront_promotions');
+            \Illuminate\Support\Facades\Cache::forget('storefront_products_page_1_default');
+        });
+
+        static::deleted(function () {
+            \Illuminate\Support\Facades\Cache::forget('storefront_promotions');
+            \Illuminate\Support\Facades\Cache::forget('storefront_products_page_1_default');
+        });
+    }
+
     protected function casts(): array
     {
         return [

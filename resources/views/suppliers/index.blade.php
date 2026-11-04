@@ -145,7 +145,7 @@
                 </button>
 
                 <!-- Toggle Status -->
-                <form method="POST" action="{{ route('suppliers.toggle-status', $supplier) }}" class="d-inline">
+                <form method="POST" action="{{ route('suppliers.toggle-status', $supplier) }}" class="d-inline pos-quick-form">
                     @csrf
                     @method('PATCH')
                     <button type="submit" 
@@ -200,7 +200,7 @@
                             </p>
                             <div class="d-flex gap-2">
                                 <button type="button" class="btn btn-sm btn-light border w-50" data-bs-dismiss="modal">Close</button>
-                                <form method="POST" action="{{ route('suppliers.toggle-status', $supplier) }}" class="w-50">
+                                <form method="POST" action="{{ route('suppliers.toggle-status', $supplier) }}" class="w-50 pos-quick-form">
                                     @csrf
                                     @method('PATCH')
                                     <button type="submit" class="btn btn-sm btn-skincare-primary w-100">

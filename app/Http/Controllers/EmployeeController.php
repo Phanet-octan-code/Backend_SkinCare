@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Employee;
 use App\Models\Position;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -58,7 +59,7 @@ class EmployeeController extends Controller
     /**
      * Store a newly registered staff member.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -74,6 +75,14 @@ class EmployeeController extends Controller
         ]);
 
         $employee = Employee::create($validated);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Employee [{$employee->name}] enrolled successfully.",
+                'employee' => $employee,
+            ]);
+        }
 
         return redirect()->route('employees.index')
             ->with('status', "Employee [{$employee->name}] enrolled successfully.");
@@ -135,7 +144,7 @@ class EmployeeController extends Controller
     /**
      * Update employee profile and assigned position.
      */
-    public function update(Request $request, Employee $employee): RedirectResponse
+    public function update(Request $request, Employee $employee): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -156,6 +165,14 @@ class EmployeeController extends Controller
 
         $employee->update($validated);
 
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Employee [{$employee->name}] profile updated successfully.",
+                'employee' => $employee,
+            ]);
+        }
+
         return redirect()->back()
             ->with('status', "Employee [{$employee->name}] profile updated successfully.");
     }
@@ -163,10 +180,18 @@ class EmployeeController extends Controller
     /**
      * Toggle active/inactive status for the employee.
      */
-    public function toggleStatus(Employee $employee): RedirectResponse
+    public function toggleStatus(Employee $employee): RedirectResponse|JsonResponse
     {
         $newStatus = $employee->status === 'active' ? 'inactive' : 'active';
         $employee->update(['status' => $newStatus]);
+
+        if (request()->wantsJson() || request()->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Employee [{$employee->name}] status changed to " . ucfirst($newStatus) . '.',
+                'status' => $newStatus,
+            ]);
+        }
 
         return redirect()->back()
             ->with('status', "Employee [{$employee->name}] status changed to " . ucfirst($newStatus) . '.');
@@ -175,19 +200,36 @@ class EmployeeController extends Controller
     /**
      * Remove employee or deactivate if historical records exist.
      */
-    public function destroy(Employee $employee): RedirectResponse
+    public function destroy(Employee $employee): RedirectResponse|JsonResponse
     {
         $hasAttendance = $employee->attendances()->exists();
 
         if ($hasAttendance) {
             $employee->update(['status' => 'inactive']);
 
+            $msg = "Employee [{$employee->name}] has historical attendance records. The profile was deactivated instead of deleted to preserve history.";
+
+            if (request()->wantsJson() || request()->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $msg,
+                    'deactivated' => true,
+                ]);
+            }
+
             return redirect()->route('employees.index')
-                ->with('status', "Employee [{$employee->name}] has historical attendance records. The profile was deactivated instead of deleted to preserve history.");
+                ->with('status', $msg);
         }
 
         $name = $employee->name;
         $employee->delete();
+
+        if (request()->wantsJson() || request()->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Employee [{$name}] deleted successfully.",
+            ]);
+        }
 
         return redirect()->route('employees.index')
             ->with('status', "Employee [{$name}] deleted successfully.");

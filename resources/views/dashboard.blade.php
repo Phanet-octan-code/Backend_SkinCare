@@ -81,16 +81,18 @@
         border-color: var(--primary);
     }
     .product-thumb {
-        width: 40px;
-        height: 40px;
+        width: 44px;
+        height: 44px;
         border-radius: 8px;
-        object-fit: cover;
+        object-fit: contain;
+        background-color: #F8F9F7;
+        padding: 2px;
         border: 1px solid var(--border-color);
         flex-shrink: 0;
     }
     .product-thumb-fallback {
-        width: 40px;
-        height: 40px;
+        width: 44px;
+        height: 44px;
         border-radius: 8px;
         background-color: var(--primary-subtle);
         color: var(--primary);
@@ -113,49 +115,49 @@
     <div>
         <nav aria-label="breadcrumb" class="mb-1">
             <ol class="breadcrumb mb-0" style="font-size: 0.76rem;">
-                <li class="breadcrumb-item"><a href="{{ route('dashboard') }}" class="text-decoration-none text-muted"><i class="bi bi-house-door me-1"></i>Home</a></li>
-                <li class="breadcrumb-item active text-dark fw-semibold" aria-current="page">Dashboard</li>
+                <li class="breadcrumb-item"><a href="{{ route('dashboard') }}" class="text-decoration-none text-muted"><i class="bi bi-house-door me-1"></i>{{ __('messages.home') }}</a></li>
+                <li class="breadcrumb-item active text-dark fw-semibold" aria-current="page">{{ __('messages.dashboard') }}</li>
             </ol>
         </nav>
-        <h3 class="fw-bold mb-1" style="color: var(--text-main); letter-spacing: -0.5px;">Dashboard</h3>
-        <p class="text-muted small mb-0">Overview of your skincare business performance.</p>
+        <h3 class="fw-bold mb-1" style="color: var(--text-main); letter-spacing: -0.5px;">{{ __('messages.dashboard') }}</h3>
+        <p class="text-muted small mb-0">{{ __('messages.dashboard_overview') }}</p>
     </div>
 
     <div class="d-flex flex-wrap align-items-center gap-2">
         <!-- Date-Range Selector Controls -->
-        <div class="d-flex align-items-center gap-1 bg-white p-1 rounded-pill border" style="box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+        <div class="d-flex align-items-center gap-1 bg-white p-1 rounded-pill border overflow-x-auto" style="box-shadow: 0 1px 2px rgba(0,0,0,0.03); max-width: 100%; white-space: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch;">
             <a href="{{ route('dashboard', ['period' => 'today']) }}" 
                class="period-pill {{ $period === 'today' ? 'active' : '' }}">
-                Today
+                {{ __('messages.today') }}
             </a>
             <a href="{{ route('dashboard', ['period' => 'yesterday']) }}" 
                class="period-pill {{ $period === 'yesterday' ? 'active' : '' }}">
-                Yesterday
+                {{ __('messages.yesterday') }}
             </a>
             <a href="{{ route('dashboard', ['period' => '7days']) }}" 
                class="period-pill {{ $period === '7days' ? 'active' : '' }}">
-                Last 7D
+                {{ __('messages.last_7d') }}
             </a>
             <a href="{{ route('dashboard', ['period' => 'this_month']) }}" 
                class="period-pill {{ $period === 'this_month' ? 'active' : '' }}">
-                This Month
+                {{ __('messages.this_month') }}
             </a>
             <a href="{{ route('dashboard', ['period' => 'last_month']) }}" 
                class="period-pill {{ $period === 'last_month' ? 'active' : '' }}">
-                Last Month
+                {{ __('messages.last_month') }}
             </a>
             <button type="button" 
                     class="period-pill d-inline-flex align-items-center gap-1 {{ $period === 'custom' ? 'active' : '' }}" 
                     data-bs-toggle="modal" 
                     data-bs-target="#customDateModal">
                 <i class="bi bi-calendar3"></i>
-                <span>Custom</span>
+                <span>{{ __('messages.custom') }}</span>
             </button>
         </div>
 
         <!-- Quick Action: New Sale (POS Terminal) -->
         <x-action-button roles="admin,manager,cashier" icon="bi-cart-plus-fill" :url="route('pos.index')">
-            New Sale
+            {{ __('messages.new_sale') }}
         </x-action-button>
     </div>
 </div>
@@ -165,10 +167,10 @@
 <div class="alert alert-light border d-flex align-items-center justify-content-between py-2 px-3 mb-4 small" style="border-radius: var(--radius-md);">
     <div class="d-flex align-items-center gap-2">
         <i class="bi bi-calendar-range text-primary fs-6"></i>
-        <span>Active Date Range: <strong>{{ $periodLabel }}</strong></span>
+        <span>{{ __('messages.active_date_range') }}: <strong>{{ $periodLabel }}</strong></span>
     </div>
     <a href="{{ route('dashboard', ['period' => '7days']) }}" class="text-decoration-none text-muted small">
-        <i class="bi bi-x-circle me-1"></i>Reset to Default
+        <i class="bi bi-x-circle me-1"></i>{{ __('messages.reset_to_default') }}
     </a>
 </div>
 @endif
@@ -178,9 +180,9 @@
     <!-- 1. Today's Sales -->
     <div class="col-12 col-sm-6 col-xl-2">
         <x-kpi-card 
-            :title="$isCashier ? 'My Today Sales' : 'Today\'s Sales'" 
+            :title="$isCashier ? __('messages.today_sales') : __('messages.today_sales')" 
             :value="'$' . number_format($todaySalesTotal, 2)" 
-            :subtitle="$todaySalesCount . ' completed orders'"
+            :subtitle="$todaySalesCount . ' ' . __('messages.selected')"
             :trend="$todayTrend"
             :trendUp="$todayTrendUp"
             icon="bi-cash-coin" 
@@ -190,7 +192,7 @@
     <!-- 2. Monthly Revenue -->
     <div class="col-12 col-sm-6 col-xl-2">
         <x-kpi-card 
-            :title="$isCashier ? 'My Month Sales' : 'Monthly Revenue'" 
+            :title="$isCashier ? __('messages.monthly_revenue') : __('messages.monthly_revenue')" 
             :value="'$' . number_format($monthlyRevenue, 2)" 
             :subtitle="now()->format('F Y')"
             :trend="$monthlyTrend"
@@ -202,9 +204,9 @@
     <!-- 3. Total Products -->
     <div class="col-12 col-sm-6 col-xl-2">
         <x-kpi-card 
-            title="Total Products" 
+            :title="__('messages.total_products')" 
             :value="number_format($totalProducts)" 
-            :subtitle="$activeProductsCount . ' active across ' . $activeCategoriesCount . ' categories'"
+            :subtitle="$activeProductsCount . ' ' . __('messages.active')"
             icon="bi-boxes" 
             color="info" />
     </div>
@@ -212,9 +214,9 @@
     <!-- 4. Low Stock Items -->
     <div class="col-12 col-sm-6 col-xl-2">
         <x-kpi-card 
-            title="Low Stock Items" 
+            :title="__('messages.low_stock_items')" 
             :value="number_format($lowStockCount)" 
-            :subtitle="$lowStockCount > 0 ? ($outOfStockCount > 0 ? $outOfStockCount . ' out of stock' : 'Restocking recommended') : 'All formulas well stocked'"
+            :subtitle="$lowStockCount > 0 ? ($outOfStockCount > 0 ? $outOfStockCount . ' ' . __('messages.out_of_stock') : __('messages.low_stock')) : __('messages.in_stock')"
             icon="bi-exclamation-triangle" 
             :color="$lowStockCount > 0 ? 'warning' : 'success'" />
     </div>
@@ -222,9 +224,9 @@
     <!-- 5. Total Customers -->
     <div class="col-12 col-sm-6 col-xl-2">
         <x-kpi-card 
-            title="Total Customers" 
+            :title="__('messages.total_customers')" 
             :value="number_format($totalCustomers)" 
-            :subtitle="$vipCustomersCount . ' VIP loyalty members'"
+            :subtitle="$vipCustomersCount . ' VIP'"
             icon="bi-people" 
             color="sage" />
     </div>
@@ -232,9 +234,9 @@
     <!-- 6. Total Transactions -->
     <div class="col-12 col-sm-6 col-xl-2">
         <x-kpi-card 
-            title="Transactions" 
+            :title="__('messages.total_transactions')" 
             :value="number_format($periodTransactionsCount)" 
-            :subtitle="'$' . number_format($averageOrderValue, 2) . ' avg. ticket'"
+            :subtitle="'$' . number_format($averageOrderValue, 2) . ' ' . __('messages.aov')"
             icon="bi-receipt" 
             color="dark" />
     </div>

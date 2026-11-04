@@ -26,7 +26,7 @@
     </div>
     @endif
 
-    <div class="{{ $noPadding ? 'p-0' : 'p-4' }}">
+    <div class="{{ $noPadding ? 'p-0' : 'p-3 p-md-4' }}">
         {{ $slot }}
     </div>
 

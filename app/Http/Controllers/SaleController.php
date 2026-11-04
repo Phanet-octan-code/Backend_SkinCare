@@ -103,9 +103,9 @@ class SaleController extends Controller
 
         // Filter metadata
         $cashiers = (!$isCashier) 
-            ? User::whereIn('role', ['admin', 'manager', 'cashier'])->orderBy('name')->get() 
+            ? \Illuminate\Support\Facades\Cache::remember('active_cashiers_list', 120, fn() => User::whereIn('role', ['admin', 'manager', 'cashier'])->orderBy('name')->get())
             : collect([]);
-        $customers = Customer::where('status', 'active')->orderBy('name')->get();
+        $customers = \Illuminate\Support\Facades\Cache::remember('active_customers_dropdown', 120, fn() => Customer::where('status', 'active')->orderBy('name')->get());
 
         return view('sales.index', [
             'sales' => $sales,

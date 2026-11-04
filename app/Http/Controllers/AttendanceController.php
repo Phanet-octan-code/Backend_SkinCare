@@ -6,6 +6,7 @@ use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\Setting;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -45,12 +46,19 @@ class AttendanceController extends Controller
 
         $attendances = $query->latest('check_in')->paginate(20)->withQueryString();
 
-        // Calculate daily stats for the selected date
-        $allDayAttendances = Attendance::whereDate('date', $selectedDate)->get();
-        $presentCount = $allDayAttendances->where('status', 'present')->count();
-        $lateCount = $allDayAttendances->where('status', 'late')->count();
-        $permissionCount = $allDayAttendances->where('status', 'permission')->count();
-        $absentCount = $allDayAttendances->where('status', 'absent')->count();
+        // Calculate daily stats for the selected date in 1 query
+        $stats = Attendance::whereDate('date', $selectedDate)
+            ->selectRaw("
+                COUNT(CASE WHEN status = 'present' THEN 1 END) as present_count,
+                COUNT(CASE WHEN status = 'late' THEN 1 END) as late_count,
+                COUNT(CASE WHEN status = 'permission' THEN 1 END) as permission_count,
+                COUNT(CASE WHEN status = 'absent' THEN 1 END) as absent_count
+            ")->first();
+
+        $presentCount = (int) ($stats->present_count ?? 0);
+        $lateCount = (int) ($stats->late_count ?? 0);
+        $permissionCount = (int) ($stats->permission_count ?? 0);
+        $absentCount = (int) ($stats->absent_count ?? 0);
 
         $activeEmployees = Employee::with('position')->where('status', 'active')->orderBy('name')->get();
 
@@ -76,7 +84,7 @@ class AttendanceController extends Controller
     /**
      * Record a new attendance log or clock-in.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'employee_id' => 'required|exists:employees,id',
@@ -93,9 +101,13 @@ class AttendanceController extends Controller
             ->exists();
 
         if ($exists) {
+            $errMsg = 'An attendance record already exists for this staff member on the selected date.';
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => $errMsg, 'errors' => ['employee_id' => [$errMsg]]], 422);
+            }
             return redirect()->back()
                 ->withInput()
-                ->withErrors(['employee_id' => 'An attendance record already exists for this staff member on the selected date.']);
+                ->withErrors(['employee_id' => $errMsg]);
         }
 
         // Validate check_in and check_out chronological order
@@ -103,9 +115,13 @@ class AttendanceController extends Controller
             $in = Carbon::parse($validated['check_in']);
             $out = Carbon::parse($validated['check_out']);
             if ($out->lt($in)) {
+                $errMsg = 'Check-out time must be after check-in time.';
+                if ($request->wantsJson() || $request->ajax()) {
+                    return response()->json(['success' => false, 'message' => $errMsg, 'errors' => ['check_out' => [$errMsg]]], 422);
+                }
                 return redirect()->back()
                     ->withInput()
-                    ->withErrors(['check_out' => 'Check-out time must be after check-in time.']);
+                    ->withErrors(['check_out' => $errMsg]);
             }
         }
 
@@ -123,18 +139,31 @@ class AttendanceController extends Controller
 
         $attendance = Attendance::create($validated);
         $employee = Employee::find($validated['employee_id']);
+        $msg = "Attendance logged for [{$employee->name}] ({$attendance->status}).";
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => $msg,
+                'attendance' => $attendance,
+            ]);
+        }
 
         return redirect()->route('attendances.index', ['date' => $validated['date']])
-            ->with('status', "Attendance logged for [{$employee->name}] ({$attendance->status}).");
+            ->with('status', $msg);
     }
 
     /**
      * Quick check-out action for an active shift.
      */
-    public function checkOut(Request $request, Attendance $attendance): RedirectResponse
+    public function checkOut(Request $request, Attendance $attendance): RedirectResponse|JsonResponse
     {
         if ($attendance->check_out) {
-            return redirect()->back()->with('error', "Employee [{$attendance->employee->name}] has already checked out.");
+            $errMsg = "Employee [{$attendance->employee->name}] has already checked out.";
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => $errMsg], 422);
+            }
+            return redirect()->back()->with('error', $errMsg);
         }
 
         $checkOutTime = $request->input('check_out', now()->format('H:i:s'));
@@ -144,7 +173,11 @@ class AttendanceController extends Controller
             $in = Carbon::parse($attendance->check_in);
             $out = Carbon::parse($checkOutTime);
             if ($out->lt($in)) {
-                return redirect()->back()->with('error', "Check-out time ({$checkOutTime}) cannot be earlier than check-in time ({$attendance->check_in}).");
+                $errMsg = "Check-out time ({$checkOutTime}) cannot be earlier than check-in time ({$attendance->check_in}).";
+                if ($request->wantsJson() || $request->ajax()) {
+                    return response()->json(['success' => false, 'message' => $errMsg], 422);
+                }
+                return redirect()->back()->with('error', $errMsg);
             }
         }
 
@@ -154,15 +187,24 @@ class AttendanceController extends Controller
 
         $hours = $attendance->working_hours;
         $hoursNotice = $hours ? " ({$hours} hours worked)" : '';
+        $msg = "Employee [{$attendance->employee->name}] clocked out at {$checkOutTime}{$hoursNotice}.";
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => $msg,
+                'attendance' => $attendance,
+            ]);
+        }
 
         return redirect()->back()
-            ->with('status', "Employee [{$attendance->employee->name}] clocked out at {$checkOutTime}{$hoursNotice}.");
+            ->with('status', $msg);
     }
 
     /**
      * Update an existing attendance record.
      */
-    public function update(Request $request, Attendance $attendance): RedirectResponse
+    public function update(Request $request, Attendance $attendance): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'date' => 'required|date',
@@ -180,9 +222,13 @@ class AttendanceController extends Controller
                 ->exists();
 
             if ($exists) {
+                $errMsg = 'An attendance record already exists for this employee on the specified new date.';
+                if ($request->wantsJson() || $request->ajax()) {
+                    return response()->json(['success' => false, 'message' => $errMsg, 'errors' => ['date' => [$errMsg]]], 422);
+                }
                 return redirect()->back()
                     ->withInput()
-                    ->withErrors(['date' => 'An attendance record already exists for this employee on the specified new date.']);
+                    ->withErrors(['date' => $errMsg]);
             }
         }
 
@@ -191,9 +237,13 @@ class AttendanceController extends Controller
             $in = Carbon::parse($validated['check_in']);
             $out = Carbon::parse($validated['check_out']);
             if ($out->lt($in)) {
+                $errMsg = 'Check-out time must be after check-in time.';
+                if ($request->wantsJson() || $request->ajax()) {
+                    return response()->json(['success' => false, 'message' => $errMsg, 'errors' => ['check_out' => [$errMsg]]], 422);
+                }
                 return redirect()->back()
                     ->withInput()
-                    ->withErrors(['check_out' => 'Check-out time must be after check-in time.']);
+                    ->withErrors(['check_out' => $errMsg]);
             }
         }
 
@@ -207,22 +257,40 @@ class AttendanceController extends Controller
         }
 
         $attendance->update($validated);
+        $msg = "Attendance record updated for [{$attendance->employee->name}].";
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => $msg,
+                'attendance' => $attendance,
+            ]);
+        }
 
         return redirect()->back()
-            ->with('status', "Attendance record updated for [{$attendance->employee->name}].");
+            ->with('status', $msg);
     }
 
     /**
      * Delete an attendance record.
      */
-    public function destroy(Attendance $attendance): RedirectResponse
+    public function destroy(Request $request, Attendance $attendance): RedirectResponse|JsonResponse
     {
         $employeeName = $attendance->employee->name ?? 'Staff';
         $dateStr = $attendance->date ? $attendance->date->format('M j, Y') : '';
         $attendance->delete();
 
+        $msg = "Attendance log for [{$employeeName}] on {$dateStr} removed.";
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => $msg,
+            ]);
+        }
+
         return redirect()->back()
-            ->with('status', "Attendance log for [{$employeeName}] on {$dateStr} removed.");
+            ->with('status', $msg);
     }
 
     /**

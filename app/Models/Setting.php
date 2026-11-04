@@ -84,6 +84,7 @@ class Setting extends Model
         );
 
         Cache::forget('app_settings_assoc');
+        Cache::forget('storefront_api_settings');
 
         return $setting;
     }

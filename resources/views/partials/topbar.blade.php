@@ -1,7 +1,13 @@
 @php
-    $lowStockProducts = \App\Models\Product::lowStock()->take(5)->get();
-    $lowStockCount = \App\Models\Product::lowStock()->count();
-    $storeName = \App\Models\Setting::get('business_name', 'SkinCare Boutique');
+    $topbarAlerts = \Illuminate\Support\Facades\Cache::remember('topbar_low_stock_alerts', 60, function () {
+        return [
+            'products' => \App\Models\Product::lowStock()->select(['id', 'name', 'barcode', 'qty'])->take(5)->get(),
+            'count' => \App\Models\Product::lowStock()->count(),
+        ];
+    });
+    $lowStockProducts = $topbarAlerts['products'];
+    $lowStockCount = $topbarAlerts['count'];
+    $storeName = \App\Models\Setting::get('business_name', 'Élixir Botanique Dispensary');
 @endphp
 
 <header id="topbar">
@@ -18,7 +24,7 @@
                     @yield('breadcrumb')
                 </ol>
             </nav>
-            <div class="fw-bold text-dark text-truncate" style="font-size: 0.92rem; max-width: 260px; letter-spacing: -0.3px;">
+            <div class="fw-bold text-dark text-truncate" style="font-size: 0.92rem; max-width: clamp(120px, 28vw, 260px); letter-spacing: -0.3px;">
                 @yield('title', __('messages.app_name'))
             </div>
         </div>
@@ -51,7 +57,7 @@
 
         <!-- POS Quick Launch Button (If Cashier, Manager, Admin) -->
         @if(auth()->user()->isCashier())
-        <a href="{{ route('pos.index') }}" class="btn btn-sm btn-skincare-primary d-none d-sm-inline-flex align-items-center gap-1 px-3">
+        <a href="{{ route('pos.index') }}" data-skip-turbo="true" class="btn btn-sm btn-skincare-primary d-none d-sm-inline-flex align-items-center gap-1 px-3">
             <i class="bi bi-cart3"></i>
             <span>{{ __('messages.pos_screen') }}</span>
         </a>
@@ -77,15 +83,15 @@
                     <a class="dropdown-item py-2 px-3 small text-wrap d-flex justify-content-between align-items-center" href="{{ route('inventory.index') }}">
                         <div>
                             <div class="fw-semibold text-dark text-truncate" style="max-width: 190px;">{{ $lowItem->name }}</div>
-                            <div class="text-muted" style="font-size: 0.72rem;">Barcode: {{ $lowItem->barcode }}</div>
+                            <div class="text-muted" style="font-size: 0.72rem;">{{ __('messages.barcode') }}: {{ $lowItem->barcode }}</div>
                         </div>
-                        <span class="badge bg-danger-subtle text-danger font-monospace">{{ $lowItem->qty }} left</span>
+                        <span class="badge bg-danger-subtle text-danger font-monospace">{{ $lowItem->qty }} {{ __('messages.units') }}</span>
                     </a>
                 </li>
                 @empty
                 <li class="p-3 text-center text-muted small">
                     <i class="bi bi-check2-circle text-success fs-4 d-block mb-1"></i>
-                    All skincare inventory balances are optimal.
+                    {{ __('messages.adequate_stock') }}
                 </li>
                 @endforelse
                 @if($lowStockCount > 5)
@@ -98,15 +104,15 @@
             </ul>
         </div>
 
-        <!-- Language Selector (English / Khmer) -->
+        <!-- Language Selector (English / Khmer / Chinese) -->
         <div class="dropdown">
             <button class="btn btn-sm btn-skincare-outline p-1 px-2 d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="{{ __('messages.language') }}">
                 <i class="bi bi-translate"></i>
                 <span class="small fw-semibold text-uppercase" id="currentLangLabel">{{ strtoupper(app()->getLocale()) }}</span>
             </button>
-            <ul class="dropdown-menu dropdown-menu-end shadow-sm border mt-2" style="border-radius: 10px; min-width: 150px;">
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm border mt-2" style="border-radius: 10px; min-width: 165px;">
                 <li>
-                    <a href="{{ route('language.switch', 'en') }}" class="dropdown-item py-2 small d-flex align-items-center justify-content-between {{ app()->getLocale() === 'en' ? 'active fw-bold' : '' }}">
+                    <a href="{{ route('language.switch', 'en') }}" data-skip-turbo="true" class="dropdown-item py-2 small d-flex align-items-center justify-content-between {{ app()->getLocale() === 'en' ? 'active fw-bold' : '' }}">
                         <span>English (EN)</span>
                         @if(app()->getLocale() === 'en')
                             <i class="bi bi-check2"></i>
@@ -114,9 +120,17 @@
                     </a>
                 </li>
                 <li>
-                    <a href="{{ route('language.switch', 'km') }}" class="dropdown-item py-2 small d-flex align-items-center justify-content-between {{ app()->getLocale() === 'km' ? 'active fw-bold' : '' }}">
+                    <a href="{{ route('language.switch', 'km') }}" data-skip-turbo="true" class="dropdown-item py-2 small d-flex align-items-center justify-content-between {{ app()->getLocale() === 'km' ? 'active fw-bold' : '' }}">
                         <span>ភាសាខ្មែរ (KM)</span>
                         @if(app()->getLocale() === 'km')
+                            <i class="bi bi-check2"></i>
+                        @endif
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('language.switch', 'zh') }}" data-skip-turbo="true" class="dropdown-item py-2 small d-flex align-items-center justify-content-between {{ app()->getLocale() === 'zh' ? 'active fw-bold' : '' }}">
+                        <span>简体中文 (ZH)</span>
+                        @if(app()->getLocale() === 'zh')
                             <i class="bi bi-check2"></i>
                         @endif
                     </a>
