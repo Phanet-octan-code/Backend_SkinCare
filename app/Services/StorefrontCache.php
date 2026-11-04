@@ -50,3 +50,4 @@ class StorefrontCache
         return "{$prefix}_v{$v}_{$hash}";
     }
 }
+
