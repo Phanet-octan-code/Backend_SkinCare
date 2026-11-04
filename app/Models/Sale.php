@@ -26,6 +26,13 @@ class Sale extends Model
     public const PAYMENT_FAILED = 'failed';
     public const PAYMENT_REFUNDED = 'refunded';
 
+    protected static function booted(): void
+    {
+        static::saved(function () {
+            \App\Services\StorefrontCache::bust();
+        });
+    }
+
     public static array $validTransitions = [
         self::STATUS_PENDING => [self::STATUS_CONFIRMED, self::STATUS_PROCESSING, self::STATUS_CANCELLED],
         self::STATUS_CONFIRMED => [self::STATUS_PROCESSING, self::STATUS_CANCELLED],

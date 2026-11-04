@@ -23,13 +23,11 @@ class Promotion extends Model
     protected static function booted(): void
     {
         static::saved(function () {
-            \Illuminate\Support\Facades\Cache::forget('storefront_promotions');
-            \Illuminate\Support\Facades\Cache::forget('storefront_products_page_1_default');
+            \App\Services\StorefrontCache::bust();
         });
 
         static::deleted(function () {
-            \Illuminate\Support\Facades\Cache::forget('storefront_promotions');
-            \Illuminate\Support\Facades\Cache::forget('storefront_products_page_1_default');
+            \App\Services\StorefrontCache::bust();
         });
     }
 

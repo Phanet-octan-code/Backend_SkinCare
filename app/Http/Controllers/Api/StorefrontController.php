@@ -12,6 +12,7 @@ use App\Models\Product;
 use App\Models\ProductReview;
 use App\Models\Promotion;
 use App\Models\Setting;
+use App\Services\StorefrontCache;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,7 +25,9 @@ class StorefrontController extends Controller
      */
     public function settings(): JsonResponse
     {
-        $data = Cache::remember('storefront_api_settings', 300, function () {
+        $key = StorefrontCache::key('storefront_api_settings');
+
+        $data = Cache::remember($key, 600, function () {
             $settings = Setting::getAll();
 
             return [
@@ -51,7 +54,7 @@ class StorefrontController extends Controller
         return response()->json([
             'success' => true,
             'data' => $data,
-        ]);
+        ])->header('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
     }
 
     /**
@@ -59,7 +62,9 @@ class StorefrontController extends Controller
      */
     public function stats(): JsonResponse
     {
-        $data = Cache::remember('storefront_stats', 60, function () {
+        $key = StorefrontCache::key('storefront_stats');
+
+        $data = Cache::remember($key, 300, function () {
             return [
                 'total_products' => Product::active()->count(),
                 'total_categories' => Category::active()->count(),
@@ -70,7 +75,7 @@ class StorefrontController extends Controller
         return response()->json([
             'success' => true,
             'data' => $data,
-        ]);
+        ])->header('Cache-Control', 'public, max-age=120, stale-while-revalidate=300');
     }
 
     /**
@@ -78,17 +83,21 @@ class StorefrontController extends Controller
      */
     public function categories(): JsonResponse
     {
-        $categories = Cache::remember('storefront_categories', 120, function () {
-            return Category::active()
+        $key = StorefrontCache::key('storefront_categories');
+
+        $data = Cache::remember($key, 600, function () {
+            $categories = Category::active()
                 ->withCount(['products' => fn ($q) => $q->active()])
                 ->orderBy('name')
                 ->get();
+
+            return CategoryResource::collection($categories)->resolve();
         });
 
         return response()->json([
             'success' => true,
-            'data' => CategoryResource::collection($categories),
-        ]);
+            'data' => $data,
+        ])->header('Cache-Control', 'public, max-age=120, stale-while-revalidate=300');
     }
 
     /**
@@ -96,7 +105,9 @@ class StorefrontController extends Controller
      */
     public function brands(): JsonResponse
     {
-        $result = Cache::remember('storefront_brands', 300, function () {
+        $key = StorefrontCache::key('storefront_brands');
+
+        $data = Cache::remember($key, 600, function () {
             $productNames = Product::active()->pluck('name');
             $knownBrands = [
                 'The Ordinary',
@@ -135,8 +146,8 @@ class StorefrontController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $result,
-        ]);
+            'data' => $data,
+        ])->header('Cache-Control', 'public, max-age=120, stale-while-revalidate=300');
     }
 
     /**
@@ -144,120 +155,95 @@ class StorefrontController extends Controller
      */
     public function products(Request $request): JsonResponse
     {
-        $today = Carbon::today()->toDateString();
+        $cacheKey = StorefrontCache::key('storefront_products', $request->all());
 
-        $query = Product::active()
-            ->with([
-                'category',
-                'promotions' => fn ($q) => $q->where('status', 'active')
-                    ->whereDate('start_date', '<=', $today)
-                    ->whereDate('end_date', '>=', $today),
-            ])
-            ->withCount(['reviews as reviews_count' => fn ($q) => $q->where('status', 'approved')])
-            ->withAvg(['reviews as average_rating' => fn ($q) => $q->where('status', 'approved')], 'rating');
+        $cached = Cache::remember($cacheKey, 300, function () use ($request) {
+            $today = Carbon::today()->toDateString();
 
-        // Check if this is the default catalog query (page 1, per_page 12, no search/filters)
-        $isDefaultListing = !$request->filled('search')
-            && !$request->filled('category_id')
-            && !$request->filled('brand')
-            && !$request->filled('min_price')
-            && !$request->filled('max_price')
-            && !$request->boolean('in_stock_only')
-            && !$request->boolean('has_discount')
-            && !$request->boolean('promotion_only')
-            && $request->input('sort', 'latest') === 'latest'
-            && (int) $request->input('page', 1) === 1
-            && (int) $request->input('per_page', 12) === 12;
+            $query = Product::active()
+                ->with([
+                    'category',
+                    'promotions' => fn ($q) => $q->where('status', 'active')
+                        ->whereDate('start_date', '<=', $today)
+                        ->whereDate('end_date', '>=', $today),
+                ])
+                ->withCount(['reviews as reviews_count' => fn ($q) => $q->where('status', 'approved')])
+                ->withAvg(['reviews as average_rating' => fn ($q) => $q->where('status', 'approved')], 'rating');
 
-        if ($isDefaultListing) {
-            $cached = Cache::remember('storefront_products_page_1_default', 60, function () use ($query) {
-                $paginated = (clone $query)->latest()->paginate(12);
-                return [
-                    'data' => ProductResource::collection($paginated->items())->resolve(),
-                    'pagination' => [
-                        'current_page' => $paginated->currentPage(),
-                        'last_page' => $paginated->lastPage(),
-                        'per_page' => $paginated->perPage(),
-                        'total' => $paginated->total(),
-                    ],
-                ];
-            });
+            // Search by keyword
+            if ($request->filled('search')) {
+                $search = trim($request->input('search'));
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'LIKE', "%{$search}%")
+                      ->orWhere('description', 'LIKE', "%{$search}%")
+                      ->orWhere('barcode', 'LIKE', "%{$search}%");
+                });
+            }
 
-            return response()->json([
-                'success' => true,
-                'data' => $cached['data'],
-                'pagination' => $cached['pagination'],
-            ]);
-        }
+            // Category filter
+            if ($request->filled('category_id')) {
+                $query->where('category_id', $request->input('category_id'));
+            }
 
-        // Search by keyword
-        if ($request->filled('search')) {
-            $search = trim($request->input('search'));
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%{$search}%")
-                  ->orWhere('description', 'LIKE', "%{$search}%")
-                  ->orWhere('barcode', 'LIKE', "%{$search}%");
-            });
-        }
+            // Price range filters
+            if ($request->filled('min_price')) {
+                $query->where('sale_price', '>=', (float) $request->input('min_price'));
+            }
+            if ($request->filled('max_price')) {
+                $query->where('sale_price', '<=', (float) $request->input('max_price'));
+            }
 
-        // Category filter
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->input('category_id'));
-        }
+            // In-stock only filter
+            if ($request->boolean('in_stock_only')) {
+                $query->where('qty', '>', 0);
+            }
 
-        // Price range filters
-        if ($request->filled('min_price')) {
-            $query->where('sale_price', '>=', (float) $request->input('min_price'));
-        }
-        if ($request->filled('max_price')) {
-            $query->where('sale_price', '<=', (float) $request->input('max_price'));
-        }
+            // Brand filter
+            if ($request->filled('brand')) {
+                $brand = trim($request->input('brand'));
+                $query->where('name', 'LIKE', "{$brand}%");
+            }
 
-        // In-stock only filter
-        if ($request->boolean('in_stock_only')) {
-            $query->where('qty', '>', 0);
-        }
+            // Active promotion / discount filter
+            if ($request->boolean('has_discount') || $request->boolean('promotion_only')) {
+                $query->whereHas('promotions', function ($q) use ($today) {
+                    $q->where('status', 'active')
+                      ->whereDate('start_date', '<=', $today)
+                      ->whereDate('end_date', '>=', $today);
+                });
+            }
 
-        // Brand filter
-        if ($request->filled('brand')) {
-            $brand = trim($request->input('brand'));
-            $query->where('name', 'LIKE', "{$brand}%");
-        }
+            // Sorting
+            $sort = $request->input('sort', 'latest');
+            match ($sort) {
+                'price_asc' => $query->orderBy('sale_price', 'asc'),
+                'price_desc' => $query->orderBy('sale_price', 'desc'),
+                'name_asc' => $query->orderBy('name', 'asc'),
+                'name_desc' => $query->orderBy('name', 'desc'),
+                'best_selling' => $query->withCount('saleDetails')->orderBy('sale_details_count', 'desc'),
+                'featured' => $query->orderBy('qty', 'desc'),
+                default => $query->latest(),
+            };
 
-        // Active promotion / discount filter
-        if ($request->boolean('has_discount') || $request->boolean('promotion_only')) {
-            $query->whereHas('promotions', function ($q) use ($today) {
-                $q->where('status', 'active')
-                  ->whereDate('start_date', '<=', $today)
-                  ->whereDate('end_date', '>=', $today);
-            });
-        }
+            $perPage = min(50, max(6, (int) $request->input('per_page', 12)));
+            $paginated = $query->paginate($perPage);
 
-        // Sorting
-        $sort = $request->input('sort', 'latest');
-        match ($sort) {
-            'price_asc' => $query->orderBy('sale_price', 'asc'),
-            'price_desc' => $query->orderBy('sale_price', 'desc'),
-            'name_asc' => $query->orderBy('name', 'asc'),
-            'name_desc' => $query->orderBy('name', 'desc'),
-            'best_selling' => $query->withCount('saleDetails')->orderBy('sale_details_count', 'desc'),
-            'featured' => $query->orderBy('qty', 'desc'),
-            default => $query->latest(),
-        };
-
-        $perPage = min(50, max(6, (int) $request->input('per_page', 12)));
-        $paginated = $query->paginate($perPage);
+            return [
+                'data' => ProductResource::collection($paginated->items())->resolve(),
+                'pagination' => [
+                    'current_page' => $paginated->currentPage(),
+                    'last_page' => $paginated->lastPage(),
+                    'per_page' => $paginated->perPage(),
+                    'total' => $paginated->total(),
+                ],
+            ];
+        });
 
         return response()->json([
             'success' => true,
-            'data' => ProductResource::collection($paginated->items()),
-            'pagination' => [
-                'current_page' => $paginated->currentPage(),
-                'last_page' => $paginated->lastPage(),
-                'per_page' => $paginated->perPage(),
-                'total' => $paginated->total(),
-            ],
-        ]);
+            'data' => $cached['data'],
+            'pagination' => $cached['pagination'],
+        ])->header('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
     }
 
     /**
@@ -272,21 +258,27 @@ class StorefrontController extends Controller
             ], 404);
         }
 
-        $today = Carbon::today()->toDateString();
-        $product->load([
-            'category',
-            'promotions' => fn ($q) => $q->where('status', 'active')
-                ->whereDate('start_date', '<=', $today)
-                ->whereDate('end_date', '>=', $today),
-            'reviews' => fn ($q) => $q->where('status', 'approved')->with('customer')->latest()->take(10),
-        ]);
-        $product->loadCount(['reviews as reviews_count' => fn ($q) => $q->where('status', 'approved')]);
-        $product->loadAvg(['reviews as average_rating' => fn ($q) => $q->where('status', 'approved')], 'rating');
+        $key = StorefrontCache::key('storefront_product_' . $product->id);
+
+        $data = Cache::remember($key, 300, function () use ($product) {
+            $today = Carbon::today()->toDateString();
+            $product->load([
+                'category',
+                'promotions' => fn ($q) => $q->where('status', 'active')
+                    ->whereDate('start_date', '<=', $today)
+                    ->whereDate('end_date', '>=', $today),
+                'reviews' => fn ($q) => $q->where('status', 'approved')->with('customer')->latest()->take(10),
+            ]);
+            $product->loadCount(['reviews as reviews_count' => fn ($q) => $q->where('status', 'approved')]);
+            $product->loadAvg(['reviews as average_rating' => fn ($q) => $q->where('status', 'approved')], 'rating');
+
+            return (new ProductResource($product))->resolve();
+        });
 
         return response()->json([
             'success' => true,
-            'data' => new ProductResource($product),
-        ]);
+            'data' => $data,
+        ])->header('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
     }
 
     /**
@@ -294,9 +286,11 @@ class StorefrontController extends Controller
      */
     public function featured(): JsonResponse
     {
-        $today = Carbon::today()->toDateString();
+        $key = StorefrontCache::key('storefront_featured');
 
-        $featured = Cache::remember('storefront_featured', 60, function () use ($today) {
+        $data = Cache::remember($key, 300, function () {
+            $today = Carbon::today()->toDateString();
+
             $items = Product::active()
                 ->with([
                     'category',
@@ -316,8 +310,8 @@ class StorefrontController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $featured,
-        ]);
+            'data' => $data,
+        ])->header('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
     }
 
     /**
@@ -325,15 +319,17 @@ class StorefrontController extends Controller
      */
     public function promotions(): JsonResponse
     {
-        $promotions = Cache::remember('storefront_promotions', 120, function () {
+        $key = StorefrontCache::key('storefront_promotions');
+
+        $data = Cache::remember($key, 600, function () {
             $items = Promotion::active()->with('products')->get();
             return PromotionResource::collection($items)->resolve();
         });
 
         return response()->json([
             'success' => true,
-            'data' => $promotions,
-        ]);
+            'data' => $data,
+        ])->header('Cache-Control', 'public, max-age=120, stale-while-revalidate=300');
     }
 
     /**
@@ -380,6 +376,8 @@ class StorefrontController extends Controller
                 'status' => 'approved',
             ]
         );
+
+        StorefrontCache::bust();
 
         return response()->json([
             'success' => true,

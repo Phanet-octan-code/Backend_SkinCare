@@ -19,13 +19,11 @@ class Category extends Model
     protected static function booted(): void
     {
         static::saved(function () {
-            \Illuminate\Support\Facades\Cache::forget('storefront_categories');
-            \Illuminate\Support\Facades\Cache::forget('storefront_stats');
+            \App\Services\StorefrontCache::bust();
         });
 
         static::deleted(function () {
-            \Illuminate\Support\Facades\Cache::forget('storefront_categories');
-            \Illuminate\Support\Facades\Cache::forget('storefront_stats');
+            \App\Services\StorefrontCache::bust();
         });
     }
 

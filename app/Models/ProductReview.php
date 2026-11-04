@@ -26,6 +26,12 @@ class ProductReview extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::saved(fn () => \App\Services\StorefrontCache::bust());
+        static::deleted(fn () => \App\Services\StorefrontCache::bust());
+    }
+
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);

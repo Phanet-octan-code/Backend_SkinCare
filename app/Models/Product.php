@@ -100,32 +100,37 @@ class Product extends Model
     protected static function booted(): void
     {
         static::saved(function () {
-            \Illuminate\Support\Facades\Cache::forget('storefront_products_page_1_default');
-            \Illuminate\Support\Facades\Cache::forget('storefront_brands');
-            \Illuminate\Support\Facades\Cache::forget('storefront_stats');
+            \App\Services\StorefrontCache::bust();
         });
 
         static::deleted(function () {
-            \Illuminate\Support\Facades\Cache::forget('storefront_products_page_1_default');
-            \Illuminate\Support\Facades\Cache::forget('storefront_brands');
-            \Illuminate\Support\Facades\Cache::forget('storefront_stats');
+            \App\Services\StorefrontCache::bust();
         });
     }
 
     public function getAverageRatingAttribute(): float
     {
-        if (array_key_exists('average_rating', $this->attributes) && $this->attributes['average_rating'] !== null) {
-            return (float) round((float) $this->attributes['average_rating'], 1);
+        if (array_key_exists('average_rating', $this->attributes)) {
+            return $this->attributes['average_rating'] !== null
+                ? (float) round((float) $this->attributes['average_rating'], 1)
+                : 5.0;
         }
-        return (float) round($this->reviews()->where('status', 'approved')->avg('rating') ?? 5.0, 1);
+        if ($this->relationLoaded('reviews')) {
+            $approved = $this->reviews->where('status', 'approved');
+            return $approved->count() > 0 ? (float) round($approved->avg('rating'), 1) : 5.0;
+        }
+        return 5.0;
     }
 
     public function getReviewsCountAttribute(): int
     {
-        if (array_key_exists('reviews_count', $this->attributes) && $this->attributes['reviews_count'] !== null) {
-            return (int) $this->attributes['reviews_count'];
+        if (array_key_exists('reviews_count', $this->attributes)) {
+            return (int) ($this->attributes['reviews_count'] ?? 0);
         }
-        return (int) $this->reviews()->where('status', 'approved')->count();
+        if ($this->relationLoaded('reviews')) {
+            return $this->reviews->where('status', 'approved')->count();
+        }
+        return 0;
     }
 
     public function scopeActive($query)
