@@ -238,7 +238,7 @@
         <div class="mb-3">
             <label class="form-label small fw-semibold" for="create_category_image">Category Image</label>
             <input type="file" id="create_category_image" name="image" class="form-control form-control-sm" accept="image/png,image/jpeg,image/webp" style="border-radius: 8px;">
-            <div class="form-text small text-muted">Upload square high-res image (JPG, PNG, WebP up to 2MB). Used for storefront circular category avatars & POS.</div>
+            <div class="form-text small text-muted">Upload square high-res image (JPG, PNG, WebP up to 10MB). Used for storefront circular category avatars & POS.</div>
             <div id="create_category_image_preview_box" class="mt-2 d-none">
                 <img id="create_category_image_preview" src="" alt="Preview" class="rounded border shadow-2xs" style="width: 70px; height: 70px; object-fit: cover;">
             </div>
@@ -287,7 +287,7 @@
                 </div>
             </div>
             <input type="file" id="edit_category_image" name="image" class="form-control form-control-sm" accept="image/png,image/jpeg,image/webp" style="border-radius: 8px;">
-            <div class="form-text small text-muted">Upload a new image (up to 2MB) or leave blank to keep current.</div>
+            <div class="form-text small text-muted">Upload a new image (up to 10MB) or leave blank to keep current.</div>
             <div id="edit_category_image_preview_box" class="mt-2 d-none">
                 <img id="edit_category_image_preview" src="" alt="New Preview" class="rounded border shadow-2xs" style="width: 70px; height: 70px; object-fit: cover;">
             </div>
@@ -320,6 +320,20 @@ document.addEventListener('DOMContentLoaded', function () {
         createImgInput.addEventListener('change', function () {
             const file = this.files[0];
             if (file) {
+                if (file.size > 10 * 1024 * 1024) {
+                    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+                    if (window.SkinCareToast) {
+                        window.SkinCareToast.error(`Selected image (${sizeMb} MB) exceeds the 10MB limit. Please choose a smaller photo.`);
+                    } else if (typeof toast === 'function') {
+                        toast('error', `Selected image (${sizeMb} MB) exceeds the 10MB limit. Please choose a smaller photo.`);
+                    } else {
+                        alert(`Selected image (${sizeMb} MB) exceeds the 10MB limit. Please choose a smaller photo.`);
+                    }
+                    this.value = '';
+                    createImgBox.classList.add('d-none');
+                    createImgPreview.src = '';
+                    return;
+                }
                 const reader = new FileReader();
                 reader.onload = function (e) {
                     createImgPreview.src = e.target.result;
@@ -346,6 +360,20 @@ document.addEventListener('DOMContentLoaded', function () {
         editImgInput.addEventListener('change', function () {
             const file = this.files[0];
             if (file) {
+                if (file.size > 10 * 1024 * 1024) {
+                    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+                    if (window.SkinCareToast) {
+                        window.SkinCareToast.error(`Selected image (${sizeMb} MB) exceeds the 10MB limit. Please choose a smaller photo.`);
+                    } else if (typeof toast === 'function') {
+                        toast('error', `Selected image (${sizeMb} MB) exceeds the 10MB limit. Please choose a smaller photo.`);
+                    } else {
+                        alert(`Selected image (${sizeMb} MB) exceeds the 10MB limit. Please choose a smaller photo.`);
+                    }
+                    this.value = '';
+                    editImgBox.classList.add('d-none');
+                    editImgPreview.src = '';
+                    return;
+                }
                 const reader = new FileReader();
                 reader.onload = function (e) {
                     editImgPreview.src = e.target.result;

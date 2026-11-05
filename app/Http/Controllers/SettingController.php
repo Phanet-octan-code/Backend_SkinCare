@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\ImageUploadService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
@@ -74,16 +75,8 @@ class SettingController extends Controller
 
         // Process logo upload if submitted
         if ($request->hasFile('business_logo')) {
-            $logoFile = $request->file('business_logo');
-            $logoName = 'logo_' . time() . '_' . uniqid() . '.' . $logoFile->getClientOriginalExtension();
-            $destinationDir = public_path('images/branding');
-
-            if (!File::isDirectory($destinationDir)) {
-                File::makeDirectory($destinationDir, 0755, true, true);
-            }
-
-            $logoFile->move($destinationDir, $logoName);
-            Setting::set('business_logo', 'images/branding/' . $logoName, 'business');
+            $logoPath = ImageUploadService::storeImage($request->file('business_logo'), 'branding', 'logo');
+            Setting::set('business_logo', $logoPath, 'business');
         }
 
         // Persist Business Settings

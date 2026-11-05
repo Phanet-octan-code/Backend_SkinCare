@@ -256,17 +256,9 @@ class ProductController extends Controller
 
         $imagePath = null;
         try {
-            // Handle image upload
+            // Handle image upload with multi-tier resilience
             if ($request->hasFile('image')) {
-                $imageFile = $request->file('image');
-                $ext = strtolower($imageFile->getClientOriginalExtension() ?: 'jpg');
-                $fileName = 'prod_' . time() . '_' . uniqid() . '.' . $ext;
-                $destination = public_path('images/products');
-                if (!File::isDirectory($destination)) {
-                    File::makeDirectory($destination, 0755, true);
-                }
-                $imageFile->move($destination, $fileName);
-                $imagePath = 'images/products/' . $fileName;
+                $imagePath = \App\Services\ImageUploadService::storeImage($request->file('image'), 'products', 'prod');
             }
 
             $initialQty = (int) ($request->input('qty', 0));
@@ -378,22 +370,12 @@ class ProductController extends Controller
         $imagePath = $product->image;
         $newUploadedFile = null;
         try {
-            // Handle image replacement
+            // Handle image replacement with multi-tier resilience
             if ($request->hasFile('image')) {
-                $imageFile = $request->file('image');
-                $ext = strtolower($imageFile->getClientOriginalExtension() ?: 'jpg');
-                $fileName = 'prod_' . time() . '_' . uniqid() . '.' . $ext;
-                $destination = public_path('images/products');
-                if (!File::isDirectory($destination)) {
-                    File::makeDirectory($destination, 0755, true);
-                }
-                $imageFile->move($destination, $fileName);
-                $newUploadedFile = 'images/products/' . $fileName;
+                $newUploadedFile = \App\Services\ImageUploadService::storeImage($request->file('image'), 'products', 'prod');
 
                 // Clean up old custom image if exists and not default
-                if ($product->image && File::exists(public_path($product->image)) && str_contains($product->image, 'prod_')) {
-                    @File::delete(public_path($product->image));
-                }
+                \App\Services\ImageUploadService::deleteImage($product->image, 'prod_');
 
                 $imagePath = $newUploadedFile;
             }
@@ -425,13 +407,13 @@ class ProductController extends Controller
                 ->with('success', "Product '{$product->name}' updated successfully.");
 
         } catch (\Illuminate\Validation\ValidationException $e) {
-            if ($newUploadedFile && File::exists(public_path($newUploadedFile))) {
-                @File::delete(public_path($newUploadedFile));
+            if ($newUploadedFile) {
+                \App\Services\ImageUploadService::deleteImage($newUploadedFile, 'prod_');
             }
             throw $e;
         } catch (\Throwable $e) {
-            if ($newUploadedFile && File::exists(public_path($newUploadedFile))) {
-                @File::delete(public_path($newUploadedFile));
+            if ($newUploadedFile) {
+                \App\Services\ImageUploadService::deleteImage($newUploadedFile, 'prod_');
             }
             Log::error('Product update failed: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),

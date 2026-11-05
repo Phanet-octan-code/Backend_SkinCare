@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Services\ImageUploadService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class CategoryController extends Controller
@@ -81,38 +84,66 @@ class CategoryController extends Controller
             'name' => ['required', 'string', 'max:100', 'unique:categories,name'],
             'description' => ['nullable', 'string', 'max:500'],
             'status' => ['required', 'in:active,inactive'],
-            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
         ], [
             'name.unique' => 'A skincare category with this name already exists.',
             'image.image' => 'The category image must be a valid image file.',
             'image.mimes' => 'The category image must be a file of type: jpg, jpeg, png, webp.',
-            'image.max' => 'The category image must not exceed 2MB in size.',
+            'image.max' => 'The category image must not exceed 10MB in size.',
         ]);
 
-        if ($request->hasFile('image')) {
-            $imageFile = $request->file('image');
-            $fileName = 'cat_' . time() . '_' . uniqid() . '.' . $imageFile->getClientOriginalExtension();
-            $destination = public_path('images/categories');
-            if (!File::isDirectory($destination)) {
-                File::makeDirectory($destination, 0755, true, true);
+        $imagePath = null;
+        try {
+            if ($request->hasFile('image')) {
+                $imagePath = ImageUploadService::storeImage($request->file('image'), 'categories', 'cat');
+                $validated['image'] = $imagePath;
             }
-            $imageFile->move($destination, $fileName);
-            $validated['image'] = 'images/categories/' . $fileName;
-        }
 
-        $category = Category::create($validated);
-        self::clearCategoryCaches();
+            DB::beginTransaction();
 
-        if ($request->wantsJson() || $request->ajax()) {
-            return response()->json([
-                'success' => true,
-                'message' => "Category '{$category->name}' created successfully.",
-                'category' => $category,
+            $category = Category::create($validated);
+
+            DB::commit();
+
+            self::clearCategoryCaches();
+
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "Category '{$category->name}' created successfully.",
+                    'category' => $category,
+                ]);
+            }
+
+            return redirect()->route('categories.index')
+                ->with('success', "Category '{$category->name}' created successfully.");
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            if ($imagePath) {
+                ImageUploadService::deleteImage($imagePath, 'cat_');
+            }
+            throw $e;
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            if ($imagePath) {
+                ImageUploadService::deleteImage($imagePath, 'cat_');
+            }
+            Log::error('Category creation failed: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'input' => $request->except(['image']),
             ]);
-        }
 
-        return redirect()->route('categories.index')
-            ->with('success', "Category '{$category->name}' created successfully.");
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unable to save category: ' . $e->getMessage(),
+                ], 422);
+            }
+
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Unable to save category: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -134,49 +165,70 @@ class CategoryController extends Controller
             'name' => ['required', 'string', 'max:100', 'unique:categories,name,' . $category->id],
             'description' => ['nullable', 'string', 'max:500'],
             'status' => ['required', 'in:active,inactive'],
-            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
         ], [
             'name.unique' => 'A skincare category with this name already exists.',
             'image.image' => 'The category image must be a valid image file.',
             'image.mimes' => 'The category image must be a file of type: jpg, jpeg, png, webp.',
-            'image.max' => 'The category image must not exceed 2MB in size.',
+            'image.max' => 'The category image must not exceed 10MB in size.',
         ]);
 
-        if ($request->hasFile('image')) {
-            $imageFile = $request->file('image');
-            $fileName = 'cat_' . time() . '_' . uniqid() . '.' . $imageFile->getClientOriginalExtension();
-            $destination = public_path('images/categories');
-            if (!File::isDirectory($destination)) {
-                File::makeDirectory($destination, 0755, true, true);
+        $newUploadedFile = null;
+        try {
+            DB::beginTransaction();
+
+            if ($request->hasFile('image')) {
+                $newUploadedFile = ImageUploadService::storeImage($request->file('image'), 'categories', 'cat');
+                ImageUploadService::deleteImage($category->image, 'cat_');
+                $validated['image'] = $newUploadedFile;
+            } elseif ($request->boolean('remove_image')) {
+                ImageUploadService::deleteImage($category->image, 'cat_');
+                $validated['image'] = null;
             }
-            $imageFile->move($destination, $fileName);
 
-            // Clean up old custom image if exists
-            if ($category->image && File::exists(public_path($category->image)) && str_contains($category->image, 'cat_')) {
-                File::delete(public_path($category->image));
+            $category->update($validated);
+
+            DB::commit();
+
+            self::clearCategoryCaches();
+
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "Category '{$category->name}' updated successfully.",
+                    'category' => $category,
+                ]);
             }
 
-            $validated['image'] = 'images/categories/' . $fileName;
-        } elseif ($request->boolean('remove_image')) {
-            if ($category->image && File::exists(public_path($category->image)) && str_contains($category->image, 'cat_')) {
-                File::delete(public_path($category->image));
+            return redirect()->route('categories.index')
+                ->with('success', "Category '{$category->name}' updated successfully.");
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            if ($newUploadedFile) {
+                ImageUploadService::deleteImage($newUploadedFile, 'cat_');
             }
-            $validated['image'] = null;
-        }
-
-        $category->update($validated);
-        self::clearCategoryCaches();
-
-        if ($request->wantsJson() || $request->ajax()) {
-            return response()->json([
-                'success' => true,
-                'message' => "Category '{$category->name}' updated successfully.",
-                'category' => $category,
+            throw $e;
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            if ($newUploadedFile) {
+                ImageUploadService::deleteImage($newUploadedFile, 'cat_');
+            }
+            Log::error('Category update failed: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'category_id' => $category->id,
             ]);
-        }
 
-        return redirect()->route('categories.index')
-            ->with('success', "Category '{$category->name}' updated successfully.");
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unable to update category: ' . $e->getMessage(),
+                ], 422);
+            }
+
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Unable to update category: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -222,9 +274,7 @@ class CategoryController extends Controller
         }
 
         $categoryName = $category->name;
-        if ($category->image && File::exists(public_path($category->image)) && str_contains($category->image, 'cat_')) {
-            File::delete(public_path($category->image));
-        }
+        ImageUploadService::deleteImage($category->image, 'cat_');
         $category->delete();
         self::clearCategoryCaches();
 
