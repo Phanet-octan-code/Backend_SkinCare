@@ -313,4 +313,39 @@ class PosAndSalesWorkflowTest extends TestCase
         $response->assertSee('COSRX Snail 96 Mucin Power Essence 100ml');
         $response->assertSee('Print Receipt');
     }
+
+    public function test_pos_products_api_filters_by_category(): void
+    {
+        $this->actingAs($this->cashier);
+
+        // Another category and product
+        $anotherCategory = \App\Models\Category::create([
+            'name' => 'Toners & Essences',
+            'status' => 'active',
+        ]);
+        $anotherProduct = \App\Models\Product::create([
+            'category_id' => $anotherCategory->id,
+            'supplier_id' => $this->product->supplier_id,
+            'name' => 'Botanical Balancing Toner',
+            'barcode' => '8809000000002',
+            'cost_price' => 10.00,
+            'sale_price' => 18.00,
+            'qty' => 15,
+            'status' => 'active',
+        ]);
+
+        // 1. Fetch all products
+        $allRes = $this->getJson('/pos/products');
+        $allRes->assertStatus(200);
+        $allRes->assertJsonPath('success', true);
+        $this->assertGreaterThanOrEqual(2, $allRes->json('count'));
+
+        // 2. Fetch products by specific category
+        $catRes = $this->getJson("/pos/products?category_id={$anotherCategory->id}");
+        $catRes->assertStatus(200);
+        $catRes->assertJsonPath('success', true);
+        $catRes->assertJsonPath('count', 1);
+        $this->assertEquals($anotherProduct->id, $catRes->json('products.0.id'));
+        $this->assertEquals('Toners & Essences', $catRes->json('products.0.category_name'));
+    }
 }

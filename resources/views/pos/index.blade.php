@@ -150,6 +150,18 @@
         color: #FFFFFF !important;
         box-shadow: 0 2px 8px rgba(113, 133, 107, 0.32);
     }
+    .pos-cat-nav-btn {
+        background-color: #FFFFFF;
+        color: var(--text-dark);
+        border: 1px solid var(--border-color);
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    .pos-cat-nav-btn:hover {
+        background-color: var(--primary);
+        color: #FFFFFF;
+        border-color: var(--primary);
+    }
     .cart-item-row {
         background: #FAFCFA;
         border: 1px solid var(--border-color);
@@ -289,17 +301,25 @@
                         </div>
                     </div>
 
-                    <!-- Category Pills Filter -->
-                    <div class="d-flex align-items-center gap-1 overflow-x-auto pt-2 mt-2 border-top pos-cat-pill-scroll">
-                        <button type="button" class="pos-cat-pill active" data-category="all">{{ __('messages.all_items') }}</button>
-                        @foreach($categories as $cat)
-                        <button type="button" class="pos-cat-pill d-inline-flex align-items-center gap-1" data-category="{{ $cat->id }}">
-                            @if($cat->image)
-                                <img src="{{ asset($cat->image) }}" alt="{{ $cat->name }}" class="rounded-circle" style="width: 16px; height: 16px; object-fit: cover;">
-                            @endif
-                            <span>{{ $cat->localized_name }}</span>
+                    <!-- Category Pills Filter with Forward/Back Scroll Controls -->
+                    <div class="d-flex align-items-center gap-1 pt-2 mt-2 border-top position-relative">
+                        <button type="button" class="btn btn-sm btn-light border rounded-circle pos-cat-nav-btn d-flex align-items-center justify-content-center p-0 flex-shrink-0" id="posCatScrollLeft" style="width: 28px; height: 28px;" title="Scroll Categories Backward">
+                            <i class="bi bi-chevron-left" style="font-size: 0.72rem;"></i>
                         </button>
-                        @endforeach
+                        <div class="d-flex align-items-center gap-1 overflow-x-auto pos-cat-pill-scroll flex-grow-1" id="posCatPillContainer" style="scrollbar-width: none; -ms-overflow-style: none;">
+                            <button type="button" class="pos-cat-pill active" data-category="all">{{ __('messages.all_items') }}</button>
+                            @foreach($categories as $cat)
+                            <button type="button" class="pos-cat-pill d-inline-flex align-items-center gap-1" data-category="{{ $cat->id }}">
+                                @if($cat->image)
+                                    <img src="{{ asset($cat->image) }}" alt="{{ $cat->name }}" class="rounded-circle" style="width: 16px; height: 16px; object-fit: cover;">
+                                @endif
+                                <span>{{ $cat->localized_name }}</span>
+                            </button>
+                            @endforeach
+                        </div>
+                        <button type="button" class="btn btn-sm btn-light border rounded-circle pos-cat-nav-btn d-flex align-items-center justify-content-center p-0 flex-shrink-0" id="posCatScrollRight" style="width: 28px; height: 28px;" title="Scroll Categories Forward">
+                            <i class="bi bi-chevron-right" style="font-size: 0.72rem;"></i>
+                        </button>
                     </div>
                 </div>
 
@@ -831,15 +851,62 @@
             }
         });
 
-        // Category Filter Buttons
+        // Category Filter Buttons with Live API Access
         document.querySelectorAll('.pos-cat-pill').forEach(btn => {
             btn.addEventListener('click', function () {
                 document.querySelectorAll('.pos-cat-pill').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
                 activeCategoryFilter = this.getAttribute('data-category');
                 renderProductGrid();
+
+                // Live API access by category at POS
+                const apiUrl = `{{ route('pos.products.api') }}?category_id=${encodeURIComponent(activeCategoryFilter)}${searchQuery ? '&search=' + encodeURIComponent(searchQuery) : ''}`;
+                fetch(apiUrl, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && Array.isArray(data.products)) {
+                        data.products.forEach(newP => {
+                            const idx = productCatalog.findIndex(p => p.id === newP.id);
+                            if (idx !== -1) {
+                                productCatalog[idx] = newP;
+                            } else {
+                                productCatalog.push(newP);
+                            }
+                        });
+                        renderProductGrid();
+                    }
+                })
+                .catch(err => console.debug('POS category API access:', err));
             });
         });
+
+        // Category Horizontal Scroll Navigation (Forward & Backward)
+        const catContainer = document.getElementById('posCatPillContainer');
+        const posCatLeftBtn = document.getElementById('posCatScrollLeft');
+        const posCatRightBtn = document.getElementById('posCatScrollRight');
+
+        function updatePosCatArrows() {
+            if (!catContainer) return;
+            const { scrollLeft, scrollWidth, clientWidth } = catContainer;
+            if (posCatLeftBtn) posCatLeftBtn.style.opacity = scrollLeft > 8 ? '1' : '0.4';
+            if (posCatRightBtn) posCatRightBtn.style.opacity = scrollLeft < scrollWidth - clientWidth - 8 ? '1' : '0.4';
+        }
+
+        posCatLeftBtn?.addEventListener('click', () => {
+            catContainer?.scrollBy({ left: -200, behavior: 'smooth' });
+            setTimeout(updatePosCatArrows, 260);
+        });
+        posCatRightBtn?.addEventListener('click', () => {
+            catContainer?.scrollBy({ left: 200, behavior: 'smooth' });
+            setTimeout(updatePosCatArrows, 260);
+        });
+        catContainer?.addEventListener('scroll', updatePosCatArrows);
+        setTimeout(updatePosCatArrows, 200);
 
         // Customer Selection
         const custSelect = document.getElementById('customerSelect');

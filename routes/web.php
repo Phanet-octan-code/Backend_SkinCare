@@ -49,6 +49,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     // POS Terminal & Sales Checkout (Admin, Manager, Cashier)
     Route::middleware('role:admin,manager,cashier')->group(function () {
         Route::get('/pos', [PosController::class, 'index'])->name('pos.index');
+        Route::get('/pos/products', [PosController::class, 'productsApi'])->name('pos.products.api');
         Route::post('/pos/checkout', [PosController::class, 'checkout'])->name('pos.checkout');
         Route::get('/pos/receipt/{sale}', [PosController::class, 'receipt'])->name('pos.receipt');
 

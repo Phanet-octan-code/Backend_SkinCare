@@ -126,6 +126,65 @@ class PosController extends Controller
     }
 
     /**
+     * Category & search filtered live API for POS terminal.
+     */
+    public function productsApi(Request $request): JsonResponse
+    {
+        $query = Product::with([
+            'category',
+            'promotions' => fn($q) => $q->active(),
+        ])->where('status', 'active');
+
+        if ($request->filled('category_id') && $request->input('category_id') !== 'all') {
+            $query->where('category_id', $request->input('category_id'));
+        }
+
+        if ($request->filled('search')) {
+            $search = trim($request->input('search'));
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                  ->orWhere('barcode', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $products = $query->orderBy('name')->get();
+
+        $payload = $products->map(function ($p) {
+            $activePromo = $p->promotions->first();
+            $promoDiscountText = '';
+            $finalPrice = (float) $p->sale_price;
+
+            if ($activePromo) {
+                $calc = $activePromo->calculateDiscount($finalPrice, 1);
+                $finalPrice = (float) $calc['final_price'];
+                $promoDiscountText = $calc['discount_text'];
+            }
+
+            return [
+                'id' => $p->id,
+                'name' => $p->name,
+                'barcode' => $p->barcode,
+                'price' => (float) $p->sale_price,
+                'cost_price' => (float) $p->cost_price,
+                'qty' => (int) $p->qty,
+                'category_id' => $p->category_id,
+                'category_name' => $p->category ? $p->category->localized_name : __('messages.general'),
+                'image' => $p->image,
+                'low_stock_threshold' => (int) $p->low_stock_threshold,
+                'is_low_stock' => $p->isLowStock(),
+                'promo_text' => $promoDiscountText,
+                'final_price' => $finalPrice,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'products' => $payload,
+            'count' => $payload->count(),
+        ]);
+    }
+
+    /**
      * Authoritative server-side checkout submission.
      */
     public function checkout(Request $request): JsonResponse
