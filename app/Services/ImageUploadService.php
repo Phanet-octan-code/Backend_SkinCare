@@ -30,8 +30,9 @@ class ImageUploadService
 
         // Primary target: public/images/{folder}
         $destinationDir = public_path('images/' . $folder);
+        $storageDir = storage_path('app/public/' . $folder);
 
-        // Attempt 1: Ensure directory exists with self-healing permissions
+        // Attempt 1: Ensure directories exist with self-healing permissions
         if (!File::isDirectory($destinationDir)) {
             @File::makeDirectory($destinationDir, 0777, true, true);
         }
@@ -40,9 +41,23 @@ class ImageUploadService
             @chmod(public_path('images'), 0777);
         }
 
-        // Attempt 2: Standard move via Symfony
+        if (!File::isDirectory($storageDir)) {
+            @File::makeDirectory($storageDir, 0777, true, true);
+        }
+        @chmod($storageDir, 0777);
+
+        // Auto-link storage if missing
+        if (!file_exists(public_path('storage'))) {
+            try {
+                \Illuminate\Support\Facades\Artisan::call('storage:link');
+            } catch (\Throwable $e) {}
+        }
+
+        // Attempt 2: Standard move via Symfony into public/images
         try {
             $file->move($destinationDir, $fileName);
+            // Sync to storage mirror
+            @copy($destinationDir . DIRECTORY_SEPARATOR . $fileName, $storageDir . DIRECTORY_SEPARATOR . $fileName);
             return 'images/' . $folder . '/' . $fileName;
         } catch (\Throwable $moveEx) {
             Log::warning("Image move() failed on {$destinationDir}: " . $moveEx->getMessage() . ". Attempting binary stream fallback.");
@@ -54,6 +69,7 @@ class ImageUploadService
             $fileContent = @file_get_contents($file->getRealPath());
             if ($fileContent !== false && @file_put_contents($targetFilePath, $fileContent) !== false) {
                 @chmod($targetFilePath, 0666);
+                @copy($targetFilePath, $storageDir . DIRECTORY_SEPARATOR . $fileName);
                 return 'images/' . $folder . '/' . $fileName;
             }
         } catch (\Throwable $streamEx) {
@@ -62,15 +78,11 @@ class ImageUploadService
 
         // Attempt 4: Storage app/public fallback if public/images is strictly root-locked
         try {
-            $storageDir = storage_path('app/public/' . $folder);
-            if (!File::isDirectory($storageDir)) {
-                @File::makeDirectory($storageDir, 0777, true, true);
-            }
-            @chmod($storageDir, 0777);
             $storageTarget = $storageDir . DIRECTORY_SEPARATOR . $fileName;
             $fileContent = $fileContent ?? @file_get_contents($file->getRealPath());
             if ($fileContent !== false && @file_put_contents($storageTarget, $fileContent) !== false) {
                 @chmod($storageTarget, 0666);
+                @copy($storageTarget, $destinationDir . DIRECTORY_SEPARATOR . $fileName);
                 return 'storage/' . $folder . '/' . $fileName;
             }
         } catch (\Throwable $storageEx) {

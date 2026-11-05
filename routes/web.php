@@ -168,3 +168,43 @@ Route::middleware(['auth', 'active'])->group(function () {
     // Language Switcher (English / Khmer)
     Route::get('/language/{locale}', [\App\Http\Controllers\LanguageController::class, 'switch'])->name('language.switch');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Dynamic Static Asset Fallback (Storage & Public Images)
+|--------------------------------------------------------------------------
+| Ensures images are served seamlessly even if the web server symlink 
+| has not been generated or file permissions require internal streaming.
+*/
+Route::get('/storage/{path}', function (string $path) {
+    // 1. Check storage/app/public
+    $storagePath = storage_path('app/public/' . $path);
+    if (file_exists($storagePath)) {
+        return response()->file($storagePath);
+    }
+
+    // 2. Fallback check in public/images
+    $publicPath = public_path('images/' . $path);
+    if (file_exists($publicPath)) {
+        return response()->file($publicPath);
+    }
+
+    abort(404);
+})->where('path', '.*')->name('storage.file');
+
+Route::get('/images/{path}', function (string $path) {
+    // 1. Check public/images
+    $publicPath = public_path('images/' . $path);
+    if (file_exists($publicPath)) {
+        return response()->file($publicPath);
+    }
+
+    // 2. Fallback check in storage/app/public
+    $storagePath = storage_path('app/public/' . $path);
+    if (file_exists($storagePath)) {
+        return response()->file($storagePath);
+    }
+
+    abort(404);
+})->where('path', '.*')->name('images.file');
+

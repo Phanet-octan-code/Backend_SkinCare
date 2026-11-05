@@ -578,4 +578,22 @@ class ManagementModulesTest extends TestCase
         $this->get('/suppliers')->assertStatus(403);
         $this->post('/suppliers', [])->assertStatus(403);
     }
+
+    public function test_dynamic_asset_fallback_route_serves_images_from_storage_and_public(): void
+    {
+        // 1. Create a dummy file in storage/app/public/test_folder/sample.png
+        $storageDir = storage_path('app/public/test_folder');
+        if (!\Illuminate\Support\Facades\File::isDirectory($storageDir)) {
+            \Illuminate\Support\Facades\File::makeDirectory($storageDir, 0777, true, true);
+        }
+        $storageFile = $storageDir . '/sample.png';
+        file_put_contents($storageFile, 'test-storage-image-content');
+
+        // Request /storage/test_folder/sample.png
+        $response = $this->get('/storage/test_folder/sample.png');
+        $response->assertStatus(200);
+
+        @unlink($storageFile);
+        @rmdir($storageDir);
+    }
 }

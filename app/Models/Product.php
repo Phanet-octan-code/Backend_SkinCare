@@ -85,12 +85,7 @@ class Product extends Model
             if (filter_var($this->image, FILTER_VALIDATE_URL)) {
                 return $this->image;
             }
-            if (file_exists(public_path($this->image))) {
-                return asset($this->image);
-            }
-            if (file_exists(public_path('storage/' . $this->image))) {
-                return asset('storage/' . $this->image);
-            }
+            return asset($this->image);
         }
 
         // Return curated reliable skincare imagery based on product ID/category

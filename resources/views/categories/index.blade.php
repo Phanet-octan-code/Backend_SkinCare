@@ -90,7 +90,14 @@
         <td class="ps-4">
             <div class="d-flex align-items-center gap-2">
                 @if($category->image)
-                    <img src="{{ asset($category->image) }}" alt="{{ $category->name }}" class="rounded shadow-2xs" style="width: 38px; height: 38px; object-fit: cover; border: 1px solid #ECE8DE;">
+                    <img src="{{ asset($category->image) }}" 
+                         alt="{{ $category->name }}" 
+                         class="rounded shadow-2xs" 
+                         style="width: 38px; height: 38px; object-fit: cover; border: 1px solid #ECE8DE;"
+                         onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-flex';">
+                    <span class="brand-icon-box" style="width: 38px; height: 38px; font-size: 1.05rem; display: none;">
+                        <i class="bi bi-tag"></i>
+                    </span>
                 @else
                     <span class="brand-icon-box" style="width: 38px; height: 38px; font-size: 1.05rem;">
                         <i class="bi bi-tag"></i>
@@ -275,7 +282,7 @@
             <label class="form-label small fw-semibold" for="edit_category_image">Category Image</label>
             <div id="edit_current_image_container" class="mb-2 d-none">
                 <div class="d-flex align-items-center gap-2 p-2 bg-light rounded border">
-                    <img id="edit_current_image_preview" src="" alt="Current Image" class="rounded border shadow-2xs" style="width: 52px; height: 52px; object-fit: cover;">
+                    <img id="edit_current_image_preview" src="" alt="Current Image" class="rounded border shadow-2xs" style="width: 52px; height: 52px; object-fit: cover;" onerror="const c = this.closest('#edit_current_image_container'); if(c) c.classList.add('d-none');">
                     <div class="flex-grow-1 min-w-0">
                         <span class="text-dark fw-semibold small d-block">Current Category Image</span>
                         <span class="text-muted" style="font-size: 0.72rem;">Upload a new image below to replace</span>

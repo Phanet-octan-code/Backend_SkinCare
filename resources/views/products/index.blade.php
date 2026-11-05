@@ -174,8 +174,15 @@
         </td>
         <td>
             <div class="d-flex align-items-center gap-2">
-                @if($product->image && file_exists(public_path($product->image)))
-                    <img src="{{ asset($product->image) }}" alt="{{ $product->name }}" class="rounded-2 border shadow-xs" style="width: 44px; height: 44px; object-fit: contain; background-color: #F8F9F7; padding: 2px;">
+                @if($product->image)
+                    <img src="{{ asset($product->image) }}" 
+                         alt="{{ $product->name }}" 
+                         class="rounded-2 border shadow-xs" 
+                         style="width: 44px; height: 44px; object-fit: contain; background-color: #F8F9F7; padding: 2px;"
+                         onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-flex';">
+                    <span class="brand-icon-box" style="width: 44px; height: 44px; font-size: 1.15rem; display: none;">
+                        <i class="bi bi-droplet-half"></i>
+                    </span>
                 @else
                     <span class="brand-icon-box" style="width: 44px; height: 44px; font-size: 1.15rem;">
                         <i class="bi bi-droplet-half"></i>
@@ -270,7 +277,7 @@
                                         'low_stock_threshold' => $product->low_stock_threshold,
                                         'status' => $product->status,
                                         'description' => $product->description,
-                                        'image' => $product->image && file_exists(public_path($product->image)) ? asset($product->image) : null,
+                                        'image' => $product->image ? asset($product->image) : null,
                                         'promo' => $hasActivePromo ? ($activePromo->name . ' (' . ($activePromo->discount_type === 'percentage' ? number_format($activePromo->discount_value, 0) . '% ' . __('messages.off') : '$' . number_format($activePromo->discount_value, 2) . ' ' . __('messages.off')) . ')') : 'None'
                                     ]) }}">
                                 <i class="bi bi-eye me-2 text-primary"></i> {{ __('messages.view_details') }}
@@ -572,7 +579,7 @@
     <div class="row g-4">
         <div class="col-12 col-md-4 text-center">
             <div id="viewProdImageContainer" class="p-2 border rounded-3 mb-2" style="background-color: #F8F9F7; min-height: 220px; display: flex; align-items: center; justify-content: center;">
-                <img id="viewProdImage" src="" alt="Product Image" class="img-fluid rounded-2" style="max-height: 240px; width: auto; max-width: 100%; object-fit: contain; padding: 6px;">
+                <img id="viewProdImage" src="" alt="Product Image" class="img-fluid rounded-2" style="max-height: 240px; width: auto; max-width: 100%; object-fit: contain; padding: 6px;" onerror="this.style.display='none'; document.getElementById('viewProdPlaceholder').style.display='block';">
                 <div id="viewProdPlaceholder" class="brand-icon-box mx-auto my-4" style="width: 72px; height: 72px; font-size: 2.2rem;">
                     <i class="bi bi-droplet-half"></i>
                 </div>

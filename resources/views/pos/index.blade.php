@@ -311,7 +311,7 @@
                             @foreach($categories as $cat)
                             <button type="button" class="pos-cat-pill d-inline-flex align-items-center gap-1" data-category="{{ $cat->id }}">
                                 @if($cat->image)
-                                    <img src="{{ asset($cat->image) }}" alt="{{ $cat->name }}" class="rounded-circle" style="width: 16px; height: 16px; object-fit: cover;">
+                                    <img src="{{ asset($cat->image) }}" alt="{{ $cat->name }}" class="rounded-circle" style="width: 16px; height: 16px; object-fit: cover;" onerror="this.remove()">
                                 @endif
                                 <span>{{ $cat->localized_name }}</span>
                             </button>
@@ -335,9 +335,9 @@
                             $stockText = $isOutOfStock ? __('messages.out_of_stock') : $p['qty'] . ' ' . __('messages.units');
                             $imgRaw = $p['image'] ?? null;
                             if ($imgRaw) {
-                                $imgUrl = (str_starts_with($imgRaw, 'http://') || str_starts_with($imgRaw, 'https://')) ? $imgRaw : (str_starts_with($imgRaw, '/') ? $imgRaw : '/' . $imgRaw);
+                                $imgUrl = (str_starts_with($imgRaw, 'http://') || str_starts_with($imgRaw, 'https://')) ? $imgRaw : asset($imgRaw);
                             } else {
-                                $imgUrl = '/images/products/skincare_bottle.jpg';
+                                $imgUrl = asset('images/products/skincare_bottle.jpg');
                             }
                         @endphp
                         <div class="col-6 col-sm-4 col-md-4 col-xl-3 pos-grid-card-wrapper" data-category="{{ $p['category_id'] }}" data-product-id="{{ $p['id'] }}">
