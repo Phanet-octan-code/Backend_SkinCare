@@ -31,7 +31,18 @@ class Category extends Model
             return $this->image;
         }
 
-        return asset($this->image);
+        $baseUrl = rtrim(env('RENDER_EXTERNAL_URL', config('app.url')), '/');
+        if (request()->hasHeader('Host') || request()->getHttpHost()) {
+            $scheme = request()->isSecure() || request()->header('X-Forwarded-Proto') === 'https' ? 'https' : 'http';
+            $host = request()->getHttpHost();
+            if (!str_contains($host, 'localhost') && !str_contains($host, '127.0.0.1')) {
+                $baseUrl = $scheme . '://' . $host;
+            }
+        }
+        if (str_contains($baseUrl, 'localhost') || str_contains($baseUrl, '127.0.0.1')) {
+            $baseUrl = 'https://backend-skincare-ng5o.onrender.com';
+        }
+        return $baseUrl . '/' . ltrim($this->image, '/');
     }
 
     protected static function booted(): void
