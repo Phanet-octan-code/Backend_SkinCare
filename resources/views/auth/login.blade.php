@@ -9,7 +9,7 @@
             ÉLIXIR <span style="color: var(--primary); font-weight: 400;">BOTANIQUE</span>
         </h3>
         <p class="text-muted small mb-0" style="font-size: 0.65rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;">
-            {{ __('messages.app_subtitle') }}
+            SkinCare POS &bull; {{ __('messages.app_subtitle') }}
         </p>
     </div>
 

@@ -28,6 +28,8 @@ Route::prefix('v1')->middleware(['throttle:120,1'])->group(function () {
         Route::get('/brands', [StorefrontController::class, 'brands']);
         Route::get('/products', [StorefrontController::class, 'products']);
         Route::get('/products/featured', [StorefrontController::class, 'featured']);
+        Route::get('/products/bestsellers', [StorefrontController::class, 'bestsellers']);
+        Route::get('/products/new-arrivals', [StorefrontController::class, 'newArrivals']);
         Route::get('/products/{product}', [StorefrontController::class, 'product']);
         Route::get('/products/{product}/reviews', [StorefrontController::class, 'reviews']);
         Route::get('/promotions', [StorefrontController::class, 'promotions']);
@@ -64,6 +66,7 @@ Route::prefix('v1')->middleware(['throttle:120,1'])->group(function () {
             Route::post('/logout', [CustomerAuthController::class, 'logout']);
             Route::get('/profile', [CustomerAuthController::class, 'profile']);
             Route::put('/profile', [CustomerAuthController::class, 'updateProfile']);
+            Route::put('/password', [CustomerAuthController::class, 'updatePassword']);
 
             // Addresses
             Route::get('/addresses', [CustomerAddressController::class, 'index']);

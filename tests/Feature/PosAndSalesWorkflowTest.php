@@ -308,7 +308,7 @@ class PosAndSalesWorkflowTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertSee($sale->invoice_number);
-        $response->assertSee('SKINCARE BOUTIQUE');
+        $response->assertSee(\App\Models\Setting::get('business_name', 'ÉLIXIR BOTANIQUE'));
         $response->assertSee('Victoria Sterling');
         $response->assertSee('COSRX Snail 96 Mucin Power Essence 100ml');
         $response->assertSee('Print Receipt');

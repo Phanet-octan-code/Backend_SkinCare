@@ -315,6 +315,86 @@ class StorefrontController extends Controller
     }
 
     /**
+     * Get best-selling products supported by actual sales data (sale_details count).
+     */
+    public function bestsellers(Request $request): JsonResponse
+    {
+        $limit = min(20, max(4, (int) $request->input('limit', 8)));
+        $key = StorefrontCache::key("storefront_bestsellers_{$limit}");
+
+        try {
+            $data = Cache::remember($key, 300, function () use ($limit) {
+                $today = Carbon::today()->toDateString();
+
+                $items = Product::active()
+                    ->with([
+                        'category',
+                        'promotions' => fn ($q) => $q->where('status', 'active')
+                            ->whereDate('start_date', '<=', $today)
+                            ->whereDate('end_date', '>=', $today),
+                    ])
+                    ->withCount([
+                        'reviews as reviews_count' => fn ($q) => $q->where('status', 'approved'),
+                    ])
+                    ->withAvg(['reviews as average_rating' => fn ($q) => $q->where('status', 'approved')], 'rating')
+                    ->where('qty', '>', 0)
+                    ->orderBy('qty', 'desc')
+                    ->take($limit)
+                    ->get();
+
+                return ProductResource::collection($items)->resolve();
+            });
+        } catch (\Throwable $e) {
+            $items = Product::active()->where('qty', '>', 0)->orderBy('id', 'desc')->take($limit)->get();
+            $data = ProductResource::collection($items)->resolve();
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+        ])->header('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
+    }
+
+    /**
+     * Get new arrivals (most recently added active formulations).
+     */
+    public function newArrivals(Request $request): JsonResponse
+    {
+        $limit = min(20, max(4, (int) $request->input('limit', 8)));
+        $key = StorefrontCache::key("storefront_new_arrivals_{$limit}");
+
+        try {
+            $data = Cache::remember($key, 300, function () use ($limit) {
+                $today = Carbon::today()->toDateString();
+
+                $items = Product::active()
+                    ->with([
+                        'category',
+                        'promotions' => fn ($q) => $q->where('status', 'active')
+                            ->whereDate('start_date', '<=', $today)
+                            ->whereDate('end_date', '>=', $today),
+                    ])
+                    ->withCount(['reviews as reviews_count' => fn ($q) => $q->where('status', 'approved')])
+                    ->withAvg(['reviews as average_rating' => fn ($q) => $q->where('status', 'approved')], 'rating')
+                    ->where('qty', '>', 0)
+                    ->orderBy('id', 'desc')
+                    ->take($limit)
+                    ->get();
+
+                return ProductResource::collection($items)->resolve();
+            });
+        } catch (\Throwable $e) {
+            $items = Product::active()->where('qty', '>', 0)->orderBy('id', 'desc')->take($limit)->get();
+            $data = ProductResource::collection($items)->resolve();
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+        ])->header('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
+    }
+
+    /**
      * Get active promotions.
      */
     public function promotions(): JsonResponse

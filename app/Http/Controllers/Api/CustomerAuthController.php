@@ -255,4 +255,33 @@ class CustomerAuthController extends Controller
             'customer' => new CustomerResource($customer),
         ]);
     }
+
+    /**
+     * Update customer password with current password verification.
+     */
+    public function updatePassword(Request $request): JsonResponse
+    {
+        $customer = $request->user();
+
+        $validated = $request->validate([
+            'current_password' => 'required|string',
+            'password' => 'required|string|min:6|confirmed',
+        ], [
+            'password.confirmed' => 'The password confirmation does not match.',
+        ]);
+
+        if (!$customer->password || !Hash::check($validated['current_password'], $customer->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['The current password entered is incorrect.'],
+            ]);
+        }
+
+        $customer->password = Hash::make($validated['password']);
+        $customer->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Your password has been updated successfully.',
+        ]);
+    }
 }

@@ -156,7 +156,7 @@ class ManagementModulesTest extends TestCase
         $this->assertDatabaseHas('categories', ['id' => $cat->id]);
 
         // Clean up
-        $prod->delete();
+        $prod->forceDelete();
         $cat->delete();
     }
 

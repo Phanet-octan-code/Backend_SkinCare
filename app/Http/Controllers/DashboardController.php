@@ -182,9 +182,14 @@ class DashboardController extends Controller
 
             // Weekly Trend
             $eightWeeksAgo = Carbon::now()->subWeeks(7)->startOfWeek();
+            $isSqlite = DB::getDriverName() === 'sqlite';
+            $weekSelect = $isSqlite
+                ? "strftime('%Y-%m-%d', created_at) as week_start, SUM(final_total) as total"
+                : "DATE_TRUNC('week', created_at)::date as week_start, SUM(final_total) as total";
+
             $weeklyRecords = (clone $completedBase)
                 ->where('created_at', '>=', $eightWeeksAgo)
-                ->selectRaw("DATE_TRUNC('week', created_at)::date as week_start, SUM(final_total) as total")
+                ->selectRaw($weekSelect)
                 ->groupBy('week_start')
                 ->pluck('total', 'week_start');
 
@@ -200,9 +205,13 @@ class DashboardController extends Controller
 
             // Monthly Trend
             $sixMonthsAgo = Carbon::now()->subMonths(5)->startOfMonth();
+            $monthSelect = $isSqlite
+                ? "strftime('%Y-%m-01', created_at) as month_start, SUM(final_total) as total"
+                : "DATE_TRUNC('month', created_at)::date as month_start, SUM(final_total) as total";
+
             $monthlyRecords = (clone $completedBase)
                 ->where('created_at', '>=', $sixMonthsAgo)
-                ->selectRaw("DATE_TRUNC('month', created_at)::date as month_start, SUM(final_total) as total")
+                ->selectRaw($monthSelect)
                 ->groupBy('month_start')
                 ->pluck('total', 'month_start');
 

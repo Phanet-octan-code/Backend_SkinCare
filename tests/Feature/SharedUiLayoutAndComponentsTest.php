@@ -91,7 +91,7 @@ class SharedUiLayoutAndComponentsTest extends TestCase
             $response->assertSee('id="sidebar"', false);
             $response->assertSee('id="topbar"', false);
             $response->assertSee('id="main-content"', false);
-            $response->assertSee('SkinCare POS', false);
+            $response->assertSee('BOTANIQUE', false);
         }
     }
 

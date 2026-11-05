@@ -531,4 +531,120 @@ class EcommerceApiWorkflowTest extends TestCase
         $order = Sale::find($orderId);
         $this->assertEquals('cancelled', $order->status);
     }
+
+    public function test_bestsellers_and_new_arrivals_api(): void
+    {
+        $resBestsellers = $this->getJson('/api/v1/store/products/bestsellers');
+        $resBestsellers->assertStatus(200)
+            ->assertJsonStructure(['success', 'data']);
+
+        $resNewArrivals = $this->getJson('/api/v1/store/products/new-arrivals');
+        $resNewArrivals->assertStatus(200)
+            ->assertJsonStructure(['success', 'data']);
+    }
+
+    public function test_customer_password_update_workflow(): void
+    {
+        $customer = Customer::create([
+            'name' => 'Password Test User',
+            'email' => 'pwtest@example.com',
+            'password' => Hash::make('OldPassword123!'),
+            'membership_number' => 'MEM-PW-' . rand(1000, 9999),
+        ]);
+        $token = $customer->createToken('token')->plainTextToken;
+
+        // Fails with wrong current password
+        $failRes = $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->putJson('/api/v1/customer/password', [
+                'current_password' => 'WrongPassword!',
+                'password' => 'NewPassword123!',
+                'password_confirmation' => 'NewPassword123!',
+            ]);
+        $failRes->assertStatus(422)
+            ->assertJsonValidationErrors(['current_password']);
+
+        // Succeeds with correct current password
+        $successRes = $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->putJson('/api/v1/customer/password', [
+                'current_password' => 'OldPassword123!',
+                'password' => 'NewPassword123!',
+                'password_confirmation' => 'NewPassword123!',
+            ]);
+        $successRes->assertStatus(200)
+            ->assertJson(['success' => true]);
+
+        $customer->refresh();
+        $this->assertTrue(Hash::check('NewPassword123!', $customer->password));
+    }
+
+    public function test_checkout_idempotency_key_prevents_duplicate_orders_and_double_deduction(): void
+    {
+        $product = Product::where('status', 'active')->first();
+        $this->assertNotNull($product);
+        $initialStock = $product->qty;
+
+        $idempotencyKey = 'IDEMP_TEST_' . uniqid();
+
+        $payload = [
+            'items' => [
+                ['product_id' => $product->id, 'qty' => 1],
+            ],
+            'guest_name' => 'Idempotent Tester',
+            'guest_email' => 'idemp_' . uniqid() . '@example.com',
+            'guest_phone' => '+855 12 555 444',
+            'shipping_address' => 'Phnom Penh St 51',
+            'payment_type' => 'card',
+            'idempotency_key' => $idempotencyKey,
+        ];
+
+        // First attempt -> 201 Created
+        $res1 = $this->withHeader('X-Idempotency-Key', $idempotencyKey)
+            ->postJson('/api/v1/customer/checkout', $payload);
+        $res1->assertStatus(201);
+        $invoice1 = $res1->json('order.invoice_number');
+
+        $product->refresh();
+        $this->assertEquals($initialStock - 1, $product->qty);
+
+        // Second immediate attempt with same idempotency key -> returns existing order (200 OK) without deducting stock again
+        $res2 = $this->withHeader('X-Idempotency-Key', $idempotencyKey)
+            ->postJson('/api/v1/customer/checkout', $payload);
+        $res2->assertStatus(200);
+        $invoice2 = $res2->json('order.invoice_number');
+
+        $this->assertEquals($invoice1, $invoice2);
+
+        // Stock was NOT deducted a second time
+        $product->refresh();
+        $this->assertEquals($initialStock - 1, $product->qty);
+    }
+
+    public function test_cash_on_delivery_checkout_sets_confirmed_order_with_pending_payment(): void
+    {
+        $product = Product::where('status', 'active')->first();
+        $this->assertNotNull($product);
+
+        $payload = [
+            'items' => [
+                ['product_id' => $product->id, 'qty' => 1],
+            ],
+            'guest_name' => 'Cash Delivery Buyer',
+            'guest_email' => 'cod_' . uniqid() . '@example.com',
+            'guest_phone' => '+855 12 888 999',
+            'shipping_address' => 'Russian Market, Phnom Penh',
+            'payment_type' => 'cash',
+        ];
+
+        $res = $this->postJson('/api/v1/customer/checkout', $payload);
+        $res->assertStatus(201);
+
+        $invoice = $res->json('order.invoice_number');
+        $sale = Sale::where('invoice_number', $invoice)->first();
+        $this->assertNotNull($sale);
+
+        // Cash on delivery is marked confirmed for delivery fulfillment, with payment pending upon arrival
+        $this->assertEquals('confirmed', $sale->status);
+        $this->assertEquals('pending', $sale->payment_status);
+        $this->assertEquals('cash', $sale->payment_type);
+    }
 }
