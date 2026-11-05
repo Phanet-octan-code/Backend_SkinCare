@@ -440,7 +440,7 @@
             <div class="col-12">
                 <label class="form-label small fw-semibold" for="create_image">Product Thumbnail / Image</label>
                 <input type="file" id="create_image" name="image" class="form-control form-control-sm" accept="image/png,image/jpeg,image/jpg,image/webp" style="border-radius: 8px;">
-                <div class="form-text" style="font-size: 0.72rem;">Supported formats: JPG, PNG, WEBP. Maximum file size: 2MB.</div>
+                <div class="form-text" style="font-size: 0.72rem;">Supported formats: JPG, PNG, WEBP. Maximum file size: 10MB.</div>
             </div>
 
             <div class="col-12">
@@ -550,7 +550,7 @@
             <div class="col-12">
                 <label class="form-label small fw-semibold" for="edit_image">Replace Product Image (Optional)</label>
                 <input type="file" id="edit_image" name="image" class="form-control form-control-sm" accept="image/png,image/jpeg,image/jpg,image/webp" style="border-radius: 8px;">
-                <div class="form-text" style="font-size: 0.72rem;">Leave empty to keep existing image. Supported: JPG, PNG, WEBP (Max 2MB).</div>
+                <div class="form-text" style="font-size: 0.72rem;">Leave empty to keep existing image. Supported: JPG, PNG, WEBP (Max 10MB).</div>
             </div>
 
             <div class="col-12">
@@ -1118,6 +1118,26 @@
                 }
             });
         }
+
+        // Client-side image validation (Max 10MB limit guard)
+        ['create_image', 'edit_image'].forEach(id => {
+            const input = document.getElementById(id);
+            if (input && !input.dataset.sizeChecked) {
+                input.dataset.sizeChecked = '1';
+                input.addEventListener('change', function () {
+                    const file = this.files && this.files[0];
+                    if (file && file.size > 10 * 1024 * 1024) {
+                        const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+                        if (window.SkinCareToast) {
+                            window.SkinCareToast.error(`Selected image (${sizeMb} MB) exceeds the 10MB limit. Please choose a smaller photo.`);
+                        } else {
+                            alert(`Selected image (${sizeMb} MB) exceeds the 10MB limit. Please choose a smaller photo.`);
+                        }
+                        this.value = '';
+                    }
+                });
+            }
+        });
     }
 
     if (document.readyState === 'loading') {

@@ -969,10 +969,23 @@
                     toast('error', msg);
                     if (data.errors) showErrors(form, data.errors);
 
+                } else if (res.status === 419) {
+                    progressFail();
+                    spinBtn(submitBtn, false);
+                    toast('error', 'Session expired. Please refresh the page and try again.');
+
+                } else if (res.status === 413) {
+                    progressFail();
+                    spinBtn(submitBtn, false);
+                    toast('error', 'Uploaded file is too large. Please select an image under 10MB.');
+
                 } else {
                     progressFail();
                     spinBtn(submitBtn, false);
-                    const msg = data.message || 'An unexpected error occurred. Please try again.';
+                    let msg = data.message || '';
+                    if (!msg || msg === 'Server Error') {
+                        msg = 'Server encountered an error saving the formulation. Please verify the fields and try again.';
+                    }
                     toast('error', msg);
                 }
             })
