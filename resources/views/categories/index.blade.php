@@ -89,9 +89,13 @@
     <tr>
         <td class="ps-4">
             <div class="d-flex align-items-center gap-2">
-                <span class="brand-icon-box" style="width: 36px; height: 36px; font-size: 1.05rem;">
-                    <i class="bi bi-tag"></i>
-                </span>
+                @if($category->image)
+                    <img src="{{ asset($category->image) }}" alt="{{ $category->name }}" class="rounded shadow-2xs" style="width: 38px; height: 38px; object-fit: cover; border: 1px solid #ECE8DE;">
+                @else
+                    <span class="brand-icon-box" style="width: 38px; height: 38px; font-size: 1.05rem;">
+                        <i class="bi bi-tag"></i>
+                    </span>
+                @endif
                 <div>
                     <span class="fw-bold text-dark d-block">{{ $category->name }}</span>
                     <span class="text-muted" style="font-size: 0.72rem;">ID: #{{ $category->id }}</span>
@@ -126,6 +130,7 @@
                         data-name="{{ $category->name }}"
                         data-description="{{ $category->description }}"
                         data-status="{{ $category->status }}"
+                        data-image="{{ $category->image ? asset($category->image) : '' }}"
                         data-action="{{ route('categories.update', $category) }}">
                     <i class="bi bi-pencil small"></i>
                 </button>
@@ -222,13 +227,21 @@
 
 <!-- Create Category Modal -->
 <x-modal id="createCategoryModal" title="Add Skincare Category" size="md">
-    <form method="POST" action="{{ route('categories.store') }}">
+    <form method="POST" action="{{ route('categories.store') }}" enctype="multipart/form-data">
         @csrf
         <div class="mb-3">
             <x-form-input name="name" label="Category Name" placeholder="e.g. Hydrating Serums & Essences" required />
         </div>
         <div class="mb-3">
             <x-form-textarea name="description" label="Description" placeholder="Brief summary of formulations under this category..." rows="3" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="create_category_image">Category Image</label>
+            <input type="file" id="create_category_image" name="image" class="form-control form-control-sm" accept="image/png,image/jpeg,image/webp" style="border-radius: 8px;">
+            <div class="form-text small text-muted">Upload square high-res image (JPG, PNG, WebP up to 2MB). Used for storefront circular category avatars & POS.</div>
+            <div id="create_category_image_preview_box" class="mt-2 d-none">
+                <img id="create_category_image_preview" src="" alt="Preview" class="rounded border shadow-2xs" style="width: 70px; height: 70px; object-fit: cover;">
+            </div>
         </div>
         <div class="mb-3">
             <x-form-select name="status" label="Status" required>
@@ -248,14 +261,36 @@
 
 <!-- Edit Category Modal (Dynamic JS Binding) -->
 <x-modal id="editCategoryModal" title="Edit Skincare Category" size="md">
-    <form id="editCategoryForm" method="POST" action="">
+    <form id="editCategoryForm" method="POST" action="" enctype="multipart/form-data">
         @csrf
         @method('PUT')
+        <input type="hidden" id="edit_category_id" name="id" value="">
         <div class="mb-3">
             <x-form-input id="edit_category_name" name="name" label="Category Name" required />
         </div>
         <div class="mb-3">
             <x-form-textarea id="edit_category_description" name="description" label="Description" rows="3" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="edit_category_image">Category Image</label>
+            <div id="edit_current_image_container" class="mb-2 d-none">
+                <div class="d-flex align-items-center gap-2 p-2 bg-light rounded border">
+                    <img id="edit_current_image_preview" src="" alt="Current Image" class="rounded border shadow-2xs" style="width: 52px; height: 52px; object-fit: cover;">
+                    <div class="flex-grow-1 min-w-0">
+                        <span class="text-dark fw-semibold small d-block">Current Category Image</span>
+                        <span class="text-muted" style="font-size: 0.72rem;">Upload a new image below to replace</span>
+                    </div>
+                    <div class="form-check form-check-inline m-0">
+                        <input class="form-check-input" type="checkbox" name="remove_image" id="remove_image" value="1">
+                        <label class="form-check-label small text-danger" for="remove_image">Remove</label>
+                    </div>
+                </div>
+            </div>
+            <input type="file" id="edit_category_image" name="image" class="form-control form-control-sm" accept="image/png,image/jpeg,image/webp" style="border-radius: 8px;">
+            <div class="form-text small text-muted">Upload a new image (up to 2MB) or leave blank to keep current.</div>
+            <div id="edit_category_image_preview_box" class="mt-2 d-none">
+                <img id="edit_category_image_preview" src="" alt="New Preview" class="rounded border shadow-2xs" style="width: 70px; height: 70px; object-fit: cover;">
+            </div>
         </div>
         <div class="mb-3">
             <label class="form-label small fw-semibold" for="edit_category_status">Status</label>
@@ -277,21 +312,82 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // Create Category Image Preview
+    const createImgInput = document.getElementById('create_category_image');
+    const createImgBox = document.getElementById('create_category_image_preview_box');
+    const createImgPreview = document.getElementById('create_category_image_preview');
+    if (createImgInput) {
+        createImgInput.addEventListener('change', function () {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    createImgPreview.src = e.target.result;
+                    createImgBox.classList.remove('d-none');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                createImgBox.classList.add('d-none');
+                createImgPreview.src = '';
+            }
+        });
+    }
+
+    // Edit Category Modal & Image Preview
     const editModal = document.getElementById('editCategoryModal');
+    const editImgInput = document.getElementById('edit_category_image');
+    const editImgBox = document.getElementById('edit_category_image_preview_box');
+    const editImgPreview = document.getElementById('edit_category_image_preview');
+    const editCurContainer = document.getElementById('edit_current_image_container');
+    const editCurPreview = document.getElementById('edit_current_image_preview');
+    const removeCheckbox = document.getElementById('remove_image');
+
+    if (editImgInput) {
+        editImgInput.addEventListener('change', function () {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    editImgPreview.src = e.target.result;
+                    editImgBox.classList.remove('d-none');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                editImgBox.classList.add('d-none');
+                editImgPreview.src = '';
+            }
+        });
+    }
+
     if (editModal) {
         editModal.addEventListener('show.bs.modal', function (event) {
             const button = event.relatedTarget;
             if (!button) return;
 
             const action = button.getAttribute('data-action');
+            const id = button.getAttribute('data-id');
             const name = button.getAttribute('data-name');
             const description = button.getAttribute('data-description');
             const status = button.getAttribute('data-status');
+            const image = button.getAttribute('data-image');
 
             document.getElementById('editCategoryForm').action = action;
+            document.getElementById('edit_category_id').value = id || '';
             document.getElementById('edit_category_name').value = name || '';
             document.getElementById('edit_category_description').value = description || '';
             document.getElementById('edit_category_status').value = status || 'active';
+
+            if (removeCheckbox) removeCheckbox.checked = false;
+            if (editImgInput) editImgInput.value = '';
+            if (editImgBox) editImgBox.classList.add('d-none');
+
+            if (image && image.trim() !== '') {
+                editCurPreview.src = image;
+                editCurContainer.classList.remove('d-none');
+            } else {
+                editCurPreview.src = '';
+                editCurContainer.classList.add('d-none');
+            }
         });
     }
 });

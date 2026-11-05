@@ -293,7 +293,12 @@
                     <div class="d-flex align-items-center gap-1 overflow-x-auto pt-2 mt-2 border-top pos-cat-pill-scroll">
                         <button type="button" class="pos-cat-pill active" data-category="all">{{ __('messages.all_items') }}</button>
                         @foreach($categories as $cat)
-                        <button type="button" class="pos-cat-pill" data-category="{{ $cat->id }}">{{ $cat->localized_name }}</button>
+                        <button type="button" class="pos-cat-pill d-inline-flex align-items-center gap-1" data-category="{{ $cat->id }}">
+                            @if($cat->image)
+                                <img src="{{ asset($cat->image) }}" alt="{{ $cat->name }}" class="rounded-circle" style="width: 16px; height: 16px; object-fit: cover;">
+                            @endif
+                            <span>{{ $cat->localized_name }}</span>
+                        </button>
                         @endforeach
                     </div>
                 </div>

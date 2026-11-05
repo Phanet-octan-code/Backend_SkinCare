@@ -128,6 +128,49 @@ class ManagementModulesTest extends TestCase
         $this->assertDatabaseMissing('categories', ['id' => $newCategory->id]);
     }
 
+    public function test_category_image_upload_and_replacement(): void
+    {
+        $this->actingAs($this->admin);
+
+        $fakeImage = UploadedFile::fake()->image('botanical_cleanser.jpg', 400, 400)->size(300);
+
+        // 1. Create category with image
+        $createResponse = $this->post('/categories', [
+            'name' => 'Botanical Cleansers Collection',
+            'description' => 'Gentle foam and gel cleansers',
+            'status' => 'active',
+            'image' => $fakeImage,
+        ]);
+
+        $createResponse->assertRedirect('/categories');
+        $this->assertDatabaseHas('categories', ['name' => 'Botanical Cleansers Collection']);
+
+        $category = Category::where('name', 'Botanical Cleansers Collection')->first();
+        $this->assertNotNull($category->image);
+        $this->assertStringContainsString('images/categories/', $category->image);
+        $this->assertStringContainsString('images/categories/', $category->image_url);
+
+        // 2. Update category with replacement image
+        $newFakeImage = UploadedFile::fake()->image('updated_cleanser.png', 400, 400)->size(400);
+        $updateResponse = $this->put("/categories/{$category->id}", [
+            'name' => 'Botanical Cleansers Collection',
+            'status' => 'active',
+            'image' => $newFakeImage,
+        ]);
+
+        $updateResponse->assertRedirect('/categories');
+        $category->refresh();
+        $this->assertNotNull($category->image);
+        $this->assertStringContainsString('images/categories/', $category->image);
+
+        // Clean up file if created
+        if (File::exists(public_path($category->image))) {
+            File::delete(public_path($category->image));
+        }
+
+        $category->delete();
+    }
+
     public function test_category_deletion_prevented_when_products_exist(): void
     {
         $this->actingAs($this->admin);

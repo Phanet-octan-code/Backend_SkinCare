@@ -17,6 +17,8 @@ class CategoryResource extends JsonResource
             'name' => $this->localized_name,
             'raw_name' => $this->name,
             'description' => $this->description,
+            'image' => $this->image,
+            'image_url' => $this->image_url,
             'products_count' => $this->whenCounted('products'),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
