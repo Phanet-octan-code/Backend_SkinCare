@@ -79,12 +79,14 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
         Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
+        Route::put('/categories', [CategoryController::class, 'update'])->name('categories.update-direct');
         Route::put('/categories/{category}', [CategoryController::class, 'update'])->name('categories.update');
         Route::patch('/categories/{category}/toggle-status', [CategoryController::class, 'toggleStatus'])->name('categories.toggle-status');
         Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
 
         Route::get('/promotions', [PromotionController::class, 'index'])->name('promotions.index');
         Route::post('/promotions', [PromotionController::class, 'store'])->name('promotions.store');
+        Route::put('/promotions', [PromotionController::class, 'update'])->name('promotions.update-direct');
         Route::put('/promotions/{promotion}', [PromotionController::class, 'update'])->name('promotions.update');
         Route::patch('/promotions/{promotion}/toggle-status', [PromotionController::class, 'toggleStatus'])->name('promotions.toggle-status');
         Route::delete('/promotions/{promotion}', [PromotionController::class, 'destroy'])->name('promotions.destroy');

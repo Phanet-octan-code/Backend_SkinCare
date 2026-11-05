@@ -102,8 +102,18 @@ class CategoryController extends Controller
     /**
      * Update an existing category.
      */
-    public function update(Request $request, Category $category): RedirectResponse|JsonResponse
+    public function update(Request $request, ?Category $category = null): RedirectResponse|JsonResponse
     {
+        if (!$category || !$category->exists) {
+            $id = $request->input('id') ?? $request->input('category_id');
+            if ($id) {
+                $category = Category::findOrFail((int) $id);
+            } else {
+                return redirect()->route('categories.index')
+                    ->with('error', 'Category ID is required for updating.');
+            }
+        }
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100', 'unique:categories,name,' . $category->id],
             'description' => ['nullable', 'string', 'max:500'],

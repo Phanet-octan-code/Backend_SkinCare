@@ -168,7 +168,7 @@
             <div class="d-flex align-items-center justify-content-end gap-1">
                 <!-- Edit Button -->
                 <button type="button" 
-                        class="btn btn-sm btn-light border px-2 py-1" 
+                        class="btn btn-sm btn-light border px-2 py-1 edit-promo-btn" 
                         title="Edit Promotion"
                         data-bs-toggle="modal" 
                         data-bs-target="#editPromotionModal"
@@ -181,8 +181,9 @@
                         data-status="{{ $promo->status }}"
                         data-scope="{{ $promo->isGeneral() ? 'general' : 'specific' }}"
                         data-product-ids="{{ json_encode($promo->products->pluck('id')->toArray()) }}"
-                        data-action="{{ route('promotions.update', $promo) }}">
-                    <i class="bi bi-pencil small"></i>
+                        data-action="{{ route('promotions.update', $promo) }}"
+                        onclick="populateEditPromotionModal(this)">
+                    <i class="bi bi-pencil small" style="pointer-events: none;"></i>
                 </button>
 
                 <!-- Toggle Status Button -->
@@ -320,9 +321,10 @@
 
 <!-- Edit Promotion Modal -->
 <x-modal id="editPromotionModal" title="Edit Skincare Promotion" size="lg">
-    <form id="editPromotionForm" method="POST" action="">
+    <form id="editPromotionForm" method="POST" action="{{ route('promotions.index') }}" onsubmit="ensureEditPromoAction(event)">
         @csrf
         @method('PUT')
+        <input type="hidden" name="id" id="edit_promo_id" value="">
         <div class="row g-3 mb-3">
             <div class="col-12 col-md-8">
                 <x-form-input id="edit_promo_name" name="name" label="Promotion / Campaign Name" required />
@@ -421,49 +423,85 @@ function filterProductCheckboxes(prefix) {
     });
 }
 
+function populateEditPromotionModal(el) {
+    const button = el ? (el.closest('button') || el) : null;
+    if (!button) return;
+
+    const id = button.getAttribute('data-id');
+    const action = button.getAttribute('data-action') || ('{{ url('/promotions') }}/' + id);
+    const name = button.getAttribute('data-name');
+    const type = button.getAttribute('data-type');
+    const value = button.getAttribute('data-value');
+    const start = button.getAttribute('data-start');
+    const end = button.getAttribute('data-end');
+    const status = button.getAttribute('data-status');
+    const scope = button.getAttribute('data-scope');
+    let productIds = [];
+    try {
+        productIds = JSON.parse(button.getAttribute('data-product-ids') || '[]');
+    } catch (e) {
+        productIds = [];
+    }
+
+    const form = document.getElementById('editPromotionForm');
+    if (form) form.action = action;
+    const idInput = document.getElementById('edit_promo_id');
+    if (idInput) idInput.value = id || '';
+
+    const nameInput = document.getElementById('edit_promo_name');
+    if (nameInput) nameInput.value = name || '';
+
+    const typeSelect = document.getElementById('edit_promo_discount_type');
+    if (typeSelect) typeSelect.value = type || 'percentage';
+
+    const valueInput = document.getElementById('edit_promo_discount_value');
+    if (valueInput) valueInput.value = value || '';
+
+    const startInput = document.getElementById('edit_promo_start_date');
+    if (startInput) startInput.value = start || '';
+
+    const endInput = document.getElementById('edit_promo_end_date');
+    if (endInput) endInput.value = end || '';
+
+    const statusSelect = document.getElementById('edit_promo_status');
+    if (statusSelect) statusSelect.value = status || 'active';
+
+    if (scope === 'specific') {
+        const specificRadio = document.getElementById('editScopeSpecific');
+        if (specificRadio) specificRadio.checked = true;
+        toggleScope('edit', 'specific');
+    } else {
+        const generalRadio = document.getElementById('editScopeGeneral');
+        if (generalRadio) generalRadio.checked = true;
+        toggleScope('edit', 'general');
+    }
+
+    // Check the appropriate checkboxes
+    const checkboxes = document.querySelectorAll('.edit-prod-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = productIds.includes(parseInt(cb.value));
+    });
+}
+
+function ensureEditPromoAction(event) {
+    const form = document.getElementById('editPromotionForm');
+    const id = document.getElementById('edit_promo_id')?.value;
+    if (form) {
+        // If action is empty or points to base /promotions without the ID parameter
+        if (id && (!form.action || form.action.endsWith('/promotions') || form.action.endsWith('/promotions/'))) {
+            form.action = '{{ url('/promotions') }}/' + id;
+        }
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     const editModal = document.getElementById('editPromotionModal');
     if (editModal) {
         editModal.addEventListener('show.bs.modal', function (event) {
-            const button = event.relatedTarget;
-            if (!button) return;
-
-            const action = button.getAttribute('data-action');
-            const name = button.getAttribute('data-name');
-            const type = button.getAttribute('data-type');
-            const value = button.getAttribute('data-value');
-            const start = button.getAttribute('data-start');
-            const end = button.getAttribute('data-end');
-            const status = button.getAttribute('data-status');
-            const scope = button.getAttribute('data-scope');
-            let productIds = [];
-            try {
-                productIds = JSON.parse(button.getAttribute('data-product-ids') || '[]');
-            } catch (e) {
-                productIds = [];
+            const button = event.relatedTarget ? (event.relatedTarget.closest('button') || event.relatedTarget) : null;
+            if (button) {
+                populateEditPromotionModal(button);
             }
-
-            document.getElementById('editPromotionForm').action = action;
-            document.getElementById('edit_promo_name').value = name || '';
-            document.getElementById('edit_promo_discount_type').value = type || 'percentage';
-            document.getElementById('edit_promo_discount_value').value = value || '';
-            document.getElementById('edit_promo_start_date').value = start || '';
-            document.getElementById('edit_promo_end_date').value = end || '';
-            document.getElementById('edit_promo_status').value = status || 'active';
-
-            if (scope === 'specific') {
-                document.getElementById('editScopeSpecific').checked = true;
-                toggleScope('edit', 'specific');
-            } else {
-                document.getElementById('editScopeGeneral').checked = true;
-                toggleScope('edit', 'general');
-            }
-
-            // Check the appropriate checkboxes
-            const checkboxes = document.querySelectorAll('.edit-prod-checkbox');
-            checkboxes.forEach(cb => {
-                cb.checked = productIds.includes(parseInt(cb.value));
-            });
         });
     }
 });

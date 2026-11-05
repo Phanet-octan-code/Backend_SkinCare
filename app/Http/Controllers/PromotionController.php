@@ -119,8 +119,18 @@ class PromotionController extends Controller
     /**
      * Update an existing promotion campaign.
      */
-    public function update(Request $request, Promotion $promotion): RedirectResponse|JsonResponse
+    public function update(Request $request, ?Promotion $promotion = null): RedirectResponse|JsonResponse
     {
+        if (!$promotion || !$promotion->exists) {
+            $id = $request->input('id') ?? $request->input('promotion_id');
+            if ($id) {
+                $promotion = Promotion::findOrFail((int) $id);
+            } else {
+                return redirect()->route('promotions.index')
+                    ->with('error', 'Promotion ID is required for updating.');
+            }
+        }
+
         $validated = $this->validatePromotion($request, $promotion->id);
 
         $productIds = $request->input('product_ids', []);
