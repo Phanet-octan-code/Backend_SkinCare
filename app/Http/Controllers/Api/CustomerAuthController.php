@@ -230,6 +230,7 @@ class CustomerAuthController extends Controller
             'phone' => 'nullable|string|max:30',
             'email' => ['required', 'email', 'max:255', Rule::unique('customers')->ignore($customer->id)],
             'address' => 'nullable|string|max:500',
+            'avatar' => 'nullable|string',
             'current_password' => 'nullable|string|required_with:new_password',
             'new_password' => 'nullable|string|min:6|confirmed',
         ]);
@@ -247,6 +248,14 @@ class CustomerAuthController extends Controller
         $customer->email = strtolower(trim($validated['email']));
         $customer->phone = trim($validated['phone'] ?? null);
         $customer->address = trim($validated['address'] ?? null);
+
+        if ($request->hasFile('avatar')) {
+            $path = $request->file('avatar')->store('avatars', 'public');
+            $customer->avatar = $path;
+        } elseif ($request->exists('avatar')) {
+            $customer->avatar = $request->input('avatar') ?: null;
+        }
+
         $customer->save();
 
         return response()->json([

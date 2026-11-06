@@ -13,6 +13,7 @@ class CustomerResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
+            'avatar' => $this->avatar ? (str_starts_with($this->avatar, 'http') || str_starts_with($this->avatar, 'data:') ? $this->avatar : asset('storage/' . $this->avatar)) : null,
             'phone' => $this->phone,
             'address' => $this->address,
             'membership_number' => $this->membership_number,
