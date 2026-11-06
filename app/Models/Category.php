@@ -71,8 +71,9 @@ class Category extends Model
      */
     public function getLocalizedNameAttribute(): string
     {
-        $locale = app()->getLocale();
-        if ($locale === 'en') {
+        $rawLocale = request()->header('Accept-Language', request()->query('lang', app()->getLocale()));
+        $locale = strtolower(substr(trim($rawLocale), 0, 2));
+        if ($locale === 'en' || !in_array($locale, ['km', 'zh'])) {
             return $this->name;
         }
 
