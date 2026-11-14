@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\BundleResource;
 use App\Http\Resources\CategoryResource;
 use App\Http\Resources\ProductResource;
 use App\Http\Resources\ProductReviewResource;
 use App\Http\Resources\PromotionResource;
+use App\Models\Bundle;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductReview;
@@ -20,6 +22,104 @@ use Illuminate\Support\Facades\Cache;
 
 class StorefrontController extends Controller
 {
+    /**
+     * Get consolidated bootstrap payload for initial client application hydration.
+     * Combines settings, categories, promotions, flash sales, shipping zones, and stats in 1 fast round-trip.
+     */
+    public function bootstrap(): JsonResponse
+    {
+        $key = StorefrontCache::key('storefront_bootstrap');
+
+        $data = Cache::remember($key, 600, function () {
+            $today = Carbon::today()->toDateString();
+            $settings = Setting::getAll();
+
+            $settingsData = [
+                'business_name' => $settings['business_name'] ?? 'SkinCare Luxury Boutique',
+                'business_address' => $settings['business_address'] ?? 'Phnom Penh, Cambodia',
+                'business_phone' => $settings['business_phone'] ?? '+855 23 888 999',
+                'business_email' => $settings['business_email'] ?? 'contact@skincare-boutique.com',
+                'currency' => $settings['currency'] ?? 'USD',
+                'currency_symbol' => Setting::currencySymbol(),
+                'exchange_rate_khr' => (float) ($settings['exchange_rate_khr'] ?? 4100.0),
+                'tax_rate' => (float) ($settings['tax_rate'] ?? 5.0),
+                'supported_currencies' => [
+                    ['code' => 'USD', 'symbol' => '$', 'label' => 'US Dollar ($)'],
+                    ['code' => 'KHR', 'symbol' => '៛', 'label' => 'Khmer Riel (៛)'],
+                ],
+            ];
+
+            // Categories
+            $categories = Category::active()
+                ->withCount(['products' => fn ($q) => $q->active()])
+                ->orderBy('name')
+                ->get();
+            $categoriesData = CategoryResource::collection($categories)->resolve();
+
+            // Promotions
+            $promotions = Promotion::active()
+                ->where('is_flash_sale', false)
+                ->with('products')
+                ->get();
+            $promotionsData = PromotionResource::collection($promotions)->resolve();
+
+            // Flash sales
+            $flashSales = Promotion::active()
+                ->flashSale()
+                ->with([
+                    'products' => fn ($q) => $q->active()
+                        ->with(['category', 'promotions' => fn ($pq) => $pq->active()])
+                        ->withCount(['reviews as reviews_count' => fn ($rq) => $rq->where('status', 'approved')])
+                        ->withAvg(['reviews as average_rating' => fn ($rq) => $rq->where('status', 'approved')], 'rating'),
+                ])
+                ->get()
+                ->map(function ($promo) {
+                    return [
+                        'id' => $promo->id,
+                        'name' => $promo->name,
+                        'code' => $promo->code,
+                        'badge_text' => $promo->badge_text ?? 'FLASH SALE',
+                        'discount_type' => $promo->discount_type,
+                        'discount_value' => (float) $promo->discount_value,
+                        'starts_at' => $promo->starts_at?->toISOString() ?? $promo->start_date?->toISOString(),
+                        'ends_at' => $promo->ends_at?->toISOString() ?? $promo->end_date?->endOfDay()->toISOString(),
+                        'min_spend' => $promo->min_spend ? (float) $promo->min_spend : 0.00,
+                        'usage_left' => $promo->total_usage_limit ? max(0, $promo->total_usage_limit - $promo->current_usage_count) : null,
+                        'products' => ProductResource::collection($promo->products)->resolve(),
+                    ];
+                });
+
+            // Shipping zones
+            $shippingZones = \App\Models\ShippingZone::where('is_active', true)->get()->map(function ($z) {
+                return [
+                    'id' => $z->id,
+                    'code' => $z->code,
+                    'name_en' => $z->name_en,
+                    'name_km' => $z->name_km,
+                    'name' => $z->localized_name,
+                    'standard_fee' => (float) $z->standard_fee,
+                    'free_shipping_threshold' => (float) $z->free_shipping_threshold,
+                    'estimated_delivery_en' => $z->estimated_delivery_en,
+                    'estimated_delivery_km' => $z->estimated_delivery_km,
+                    'estimated_delivery' => $z->localized_delivery,
+                ];
+            });
+
+            return [
+                'settings' => $settingsData,
+                'categories' => $categoriesData,
+                'promotions' => $promotionsData,
+                'flash_sales' => $flashSales,
+                'shipping_zones' => $shippingZones,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+        ])->header('Cache-Control', 'public, max-age=120, stale-while-revalidate=300');
+    }
+
     /**
      * Get store settings & financial configuration.
      */
@@ -43,6 +143,20 @@ class StorefrontController extends Controller
                     ['code' => 'USD', 'symbol' => '$', 'label' => 'US Dollar ($)'],
                     ['code' => 'KHR', 'symbol' => '៛', 'label' => 'Khmer Riel (៛)'],
                 ],
+                'shipping_zones' => \App\Models\ShippingZone::where('is_active', true)->get()->map(function ($z) {
+                    return [
+                        'id' => $z->id,
+                        'code' => $z->code,
+                        'name_en' => $z->name_en,
+                        'name_km' => $z->name_km,
+                        'name' => $z->localized_name,
+                        'standard_fee' => (float) $z->standard_fee,
+                        'free_shipping_threshold' => (float) $z->free_shipping_threshold,
+                        'estimated_delivery_en' => $z->estimated_delivery_en,
+                        'estimated_delivery_km' => $z->estimated_delivery_km,
+                        'estimated_delivery' => $z->localized_delivery,
+                    ];
+                }),
                 'payment_methods' => [
                     ['id' => 'card', 'name' => 'Credit / Debit Card', 'description' => 'Visa, MasterCard, UnionPay'],
                     ['id' => 'qr', 'name' => 'Bakong KHQR / QR Pay', 'description' => 'Instant mobile scan via all major banks'],
@@ -55,6 +169,32 @@ class StorefrontController extends Controller
             'success' => true,
             'data' => $data,
         ])->header('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
+    }
+
+    /**
+     * Get active regional shipping zones with fees and delivery estimates.
+     */
+    public function shippingZones(): JsonResponse
+    {
+        $zones = \App\Models\ShippingZone::where('is_active', true)->get()->map(function ($z) {
+            return [
+                'id' => $z->id,
+                'code' => $z->code,
+                'name_en' => $z->name_en,
+                'name_km' => $z->name_km,
+                'name' => $z->localized_name,
+                'standard_fee' => (float) $z->standard_fee,
+                'free_shipping_threshold' => (float) $z->free_shipping_threshold,
+                'estimated_delivery_en' => $z->estimated_delivery_en,
+                'estimated_delivery_km' => $z->estimated_delivery_km,
+                'estimated_delivery' => $z->localized_delivery,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $zones,
+        ]);
     }
 
     /**
@@ -423,6 +563,23 @@ class StorefrontController extends Controller
             ->latest()
             ->paginate(10);
 
+        $customerIds = collect($reviews->items())->pluck('customer_id')->filter()->unique()->values();
+        $verifiedCustomerIds = [];
+        if ($customerIds->isNotEmpty()) {
+            $verifiedCustomerIds = \App\Models\SaleDetail::query()
+                ->join('sales', 'sales.id', '=', 'sale_details.sale_id')
+                ->where('sale_details.product_id', $product->id)
+                ->whereIn('sales.customer_id', $customerIds)
+                ->where('sales.status', '!=', 'cancelled')
+                ->pluck('sales.customer_id')
+                ->flip()
+                ->toArray();
+        }
+
+        foreach ($reviews->items() as $item) {
+            $item->is_verified_purchase = isset($verifiedCustomerIds[$item->customer_id]);
+        }
+
         return response()->json([
             'success' => true,
             'data' => ProductReviewResource::collection($reviews->items()),
@@ -464,5 +621,87 @@ class StorefrontController extends Controller
             'message' => 'Thank you for your review!',
             'data' => new ProductReviewResource($review->load('customer')),
         ], 201);
+    }
+
+    /**
+     * Get active product bundles & gift sets.
+     */
+    public function bundles(Request $request): JsonResponse
+    {
+        $type = $request->input('type');
+        $key = StorefrontCache::key('storefront_bundles', ['type' => $type]);
+
+        $data = Cache::remember($key, 300, function () use ($type) {
+            $query = Bundle::active()->with(['items.product.category']);
+
+            if ($type && in_array($type, ['bundle', 'gift_set'])) {
+                $query->where('type', $type);
+            }
+
+            $bundles = $query->latest()->get();
+            return BundleResource::collection($bundles)->resolve();
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+        ])->header('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
+    }
+
+    /**
+     * Get single bundle details with constituent components.
+     */
+    public function bundle(Bundle $bundle): JsonResponse
+    {
+        if ($bundle->status !== 'active') {
+            return response()->json(['success' => false, 'message' => 'Bundle not found or inactive.'], 404);
+        }
+
+        $bundle->load('items.product');
+
+        return response()->json([
+            'success' => true,
+            'data' => new BundleResource($bundle),
+        ]);
+    }
+
+    /**
+     * Get active limited-time offers and flash sales.
+     */
+    public function flashSales(): JsonResponse
+    {
+        $key = StorefrontCache::key('storefront_flash_sales');
+
+        $sales = Cache::remember($key, 300, function () {
+            return Promotion::active()
+                ->flashSale()
+                ->with([
+                    'products' => fn ($q) => $q->active()
+                        ->with(['category', 'promotions' => fn ($pq) => $pq->active()])
+                        ->withCount(['reviews as reviews_count' => fn ($rq) => $rq->where('status', 'approved')])
+                        ->withAvg(['reviews as average_rating' => fn ($rq) => $rq->where('status', 'approved')], 'rating'),
+                ])
+                ->get()
+                ->map(function ($promo) {
+                    return [
+                        'id' => $promo->id,
+                        'name' => $promo->name,
+                        'code' => $promo->code,
+                        'badge_text' => $promo->badge_text ?? 'FLASH SALE',
+                        'discount_type' => $promo->discount_type,
+                        'discount_value' => (float) $promo->discount_value,
+                        'starts_at' => $promo->starts_at?->toISOString() ?? $promo->start_date?->toISOString(),
+                        'ends_at' => $promo->ends_at?->toISOString() ?? $promo->end_date?->endOfDay()->toISOString(),
+                        'min_spend' => $promo->min_spend ? (float) $promo->min_spend : 0.00,
+                        'usage_left' => $promo->total_usage_limit ? max(0, $promo->total_usage_limit - $promo->current_usage_count) : null,
+                        'products' => ProductResource::collection($promo->products)->resolve(),
+                    ];
+                });
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $sales,
+        ])->header('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
     }
 }

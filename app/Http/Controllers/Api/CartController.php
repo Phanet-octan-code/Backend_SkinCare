@@ -22,17 +22,28 @@ class CartController extends Controller
     {
         $validated = $request->validate([
             'items' => 'required|array',
-            'items.*.product_id' => 'required|integer|exists:products,id',
+            'items.*.product_id' => 'nullable|integer|exists:products,id',
+            'items.*.bundle_id' => 'nullable|integer|exists:bundles,id',
             'items.*.qty' => 'required|integer|min:1',
             'coupon_code' => 'nullable|string|max:50',
+            'redeem_points' => 'nullable|integer|min:0',
+            'referral_code' => 'nullable|string|max:50',
+            'shipping_zone_code' => 'nullable|string|max:50',
+            'shipping_address' => 'nullable|string|max:500',
+            'currency' => 'nullable|string|in:USD,KHR,usd,khr',
         ]);
 
         $customer = auth('sanctum')->user() ?? $request->user();
         try {
             $quote = $this->checkoutService->calculateQuote(
-                $validated['items'],
-                $customer,
-                $validated['coupon_code'] ?? null
+                items: $validated['items'],
+                customer: $customer,
+                couponCode: $validated['coupon_code'] ?? null,
+                redeemPoints: (int) ($validated['redeem_points'] ?? 0),
+                referralCode: $validated['referral_code'] ?? null,
+                shippingZoneCode: $validated['shipping_zone_code'] ?? null,
+                shippingAddress: $validated['shipping_address'] ?? null,
+                currency: $validated['currency'] ?? null
             );
 
             return response()->json([

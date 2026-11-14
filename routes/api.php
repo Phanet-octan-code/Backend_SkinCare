@@ -4,7 +4,10 @@ use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\Api\CheckoutController;
 use App\Http\Controllers\Api\CustomerAddressController;
 use App\Http\Controllers\Api\CustomerAuthController;
+use App\Http\Controllers\Api\CustomerLoyaltyController;
+use App\Http\Controllers\Api\CustomerNotificationController;
 use App\Http\Controllers\Api\CustomerOrderController;
+use App\Http\Controllers\Api\CustomerSubscriptionController;
 use App\Http\Controllers\Api\CustomerWishlistController;
 use App\Http\Controllers\Api\StorefrontController;
 use Illuminate\Support\Facades\Route;
@@ -22,7 +25,9 @@ Route::prefix('v1')->middleware(['throttle:120,1'])->group(function () {
     // 1. PUBLIC STOREFRONT MODULES
     // ──────────────────────────────────────────────
     Route::prefix('store')->group(function () {
+        Route::get('/bootstrap', [StorefrontController::class, 'bootstrap']);
         Route::get('/settings', [StorefrontController::class, 'settings']);
+        Route::get('/shipping-zones', [StorefrontController::class, 'shippingZones']);
         Route::get('/stats', [StorefrontController::class, 'stats']);
         Route::get('/categories', [StorefrontController::class, 'categories']);
         Route::get('/brands', [StorefrontController::class, 'brands']);
@@ -33,7 +38,13 @@ Route::prefix('v1')->middleware(['throttle:120,1'])->group(function () {
         Route::get('/products/{product}', [StorefrontController::class, 'product']);
         Route::get('/products/{product}/reviews', [StorefrontController::class, 'reviews']);
         Route::get('/promotions', [StorefrontController::class, 'promotions']);
+        Route::get('/bundles', [StorefrontController::class, 'bundles']);
+        Route::get('/bundles/{bundle}', [StorefrontController::class, 'bundle']);
+        Route::get('/flash-sales', [StorefrontController::class, 'flashSales']);
     });
+
+    // Referral code validation (Public / Guest / Member)
+    Route::post('/referral/validate', [CustomerLoyaltyController::class, 'validateReferral']);
 
     // Cart quoting (Public / Guest / Member)
     Route::post('/cart/quote', [CartController::class, 'quote']);
@@ -83,6 +94,20 @@ Route::prefix('v1')->middleware(['throttle:120,1'])->group(function () {
             Route::get('/wishlist', [CustomerWishlistController::class, 'index']);
             Route::post('/wishlist/{product?}', [CustomerWishlistController::class, 'store']);
             Route::delete('/wishlist/{product}', [CustomerWishlistController::class, 'destroy']);
+
+            // Customer Notifications
+            Route::get('/notifications', [CustomerNotificationController::class, 'index']);
+            Route::post('/notifications/{id}/read', [CustomerNotificationController::class, 'markAsRead']);
+            Route::post('/notifications/read-all', [CustomerNotificationController::class, 'markAllAsRead']);
+
+            // Loyalty Rewards & Referral Center
+            Route::get('/loyalty', [CustomerLoyaltyController::class, 'profile']);
+
+            // Skincare Replenishment Subscriptions
+            Route::get('/subscriptions', [CustomerSubscriptionController::class, 'index']);
+            Route::post('/subscriptions/{subscription}/pause', [CustomerSubscriptionController::class, 'pause']);
+            Route::post('/subscriptions/{subscription}/resume', [CustomerSubscriptionController::class, 'resume']);
+            Route::post('/subscriptions/{subscription}/cancel', [CustomerSubscriptionController::class, 'cancel']);
         });
 
         // Reviews submission

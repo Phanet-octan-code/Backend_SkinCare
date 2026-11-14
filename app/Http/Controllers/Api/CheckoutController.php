@@ -25,12 +25,19 @@ class CheckoutController extends Controller
 
         $rules = [
             'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|integer|exists:products,id',
+            'items.*.product_id' => 'nullable|integer|exists:products,id',
+            'items.*.bundle_id' => 'nullable|integer|exists:bundles,id',
             'items.*.qty' => 'required|integer|min:1',
             'shipping_address' => 'required|string|max:500',
             'payment_type' => 'required|string|in:card,qr,cash,transfer,qris',
             'order_notes' => 'nullable|string|max:500',
             'coupon_code' => 'nullable|string|max:50',
+            'redeem_points' => 'nullable|integer|min:0',
+            'referral_code' => 'nullable|string|max:50',
+            'currency' => 'nullable|string|in:USD,KHR,usd,khr',
+            'shipping_zone_code' => 'nullable|string|max:50',
+            'is_subscription' => 'nullable|boolean',
+            'subscription_interval_days' => 'nullable|integer|in:30,60,90',
             'idempotency_key' => 'nullable|string|max:100',
         ];
 
@@ -77,7 +84,13 @@ class CheckoutController extends Controller
                 paymentType: $validated['payment_type'],
                 orderNotes: $validated['order_notes'] ?? null,
                 guestInfo: $guestInfo,
-                couponCode: $validated['coupon_code'] ?? null
+                couponCode: $validated['coupon_code'] ?? null,
+                redeemPoints: (int) ($validated['redeem_points'] ?? 0),
+                referralCode: $validated['referral_code'] ?? null,
+                isSubscription: (bool) ($validated['is_subscription'] ?? false),
+                subscriptionIntervalDays: (int) ($validated['subscription_interval_days'] ?? 30),
+                currency: $validated['currency'] ?? null,
+                shippingZoneCode: $validated['shipping_zone_code'] ?? null
             );
 
             if ($idempotencyKey) {

@@ -21,7 +21,9 @@ class CustomerResource extends JsonResource
             'discount_percentage' => (float) $this->membership_discount_percentage,
             'total_spent' => (float) $this->total_spent,
             'completed_orders_count' => (int) $this->completed_sales_count,
-            'default_address' => new CustomerAddressResource($this->addresses()->where('is_default', true)->first()),
+            'default_address' => $this->relationLoaded('addresses')
+                ? new CustomerAddressResource($this->addresses->firstWhere('is_default', true) ?? $this->addresses->first())
+                : new CustomerAddressResource($this->addresses()->where('is_default', true)->first()),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

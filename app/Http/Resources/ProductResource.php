@@ -49,7 +49,9 @@ class ProductResource extends JsonResource
 
         return [
             'id' => $this->id,
-            'name' => $this->name,
+            'name' => $this->localized_name,
+            'name_en' => $this->name,
+            'name_km' => $this->name_km,
             'barcode' => $this->barcode,
             'sale_price' => $price,
             'final_price' => $finalPrice,
@@ -61,7 +63,9 @@ class ProductResource extends JsonResource
             'in_stock' => $this->qty > 0,
             'is_low_stock' => $this->isLowStock(),
             'image_url' => $this->image_url,
-            'description' => $this->description,
+            'description' => $this->localized_description,
+            'description_en' => $this->description,
+            'description_km' => $this->description_km,
             'category' => new CategoryResource($this->whenLoaded('category')),
             'average_rating' => $this->average_rating,
             'reviews_count' => $this->reviews_count,

@@ -47,12 +47,22 @@ class Sale extends Model
     protected $fillable = [
         'user_id',
         'customer_id',
+        'subscription_id',
         'invoice_number',
         'subtotal',
         'discount',
         'tax',
         'shipping_fee',
+        'shipping_zone_id',
+        'shipping_zone_name',
         'final_total',
+        'refunded_amount',
+        'refund_reason',
+        'refunded_at',
+        'applied_referral_code',
+        'loyalty_points_redeemed',
+        'loyalty_points_discount',
+        'loyalty_points_earned',
         'shipping_address',
         'tracking_number',
         'order_notes',
@@ -78,8 +88,18 @@ class Sale extends Model
             'tax' => 'decimal:2',
             'shipping_fee' => 'decimal:2',
             'final_total' => 'decimal:2',
+            'refunded_amount' => 'decimal:2',
+            'loyalty_points_discount' => 'decimal:2',
+            'loyalty_points_redeemed' => 'integer',
+            'loyalty_points_earned' => 'integer',
+            'refunded_at' => 'datetime',
             'exchange_rate' => 'decimal:4',
         ];
+    }
+
+    public function subscription(): BelongsTo
+    {
+        return $this->belongsTo(Subscription::class);
     }
 
     public function user(): BelongsTo
@@ -107,13 +127,48 @@ class Sale extends Model
         return $query->whereDate('created_at', Carbon::today());
     }
 
+    public function shippingZone(): BelongsTo
+    {
+        return $this->belongsTo(ShippingZone::class);
+    }
+
     /**
-     * Format a monetary amount using the sale's explicit recorded currency.
-     * Prevents historical amounts from changing if store currency setting is modified later.
+     * Convert and format a monetary amount using the sale's explicit recorded currency and historical exchange rate.
+     * Guaranteed never to silently mutate or fluctuate if store live exchange rates or currencies are changed later.
      */
     public function formatAmount(float|int|string|null $amount): string
     {
-        return Setting::formatMoney($amount, $this->currency ?? 'USD');
+        $amount = (float) ($amount ?? 0);
+        $curr = strtoupper($this->currency ?: 'USD');
+
+        if ($curr === 'KHR') {
+            $rate = (float) ($this->exchange_rate ?: 4100.0);
+            $khrAmount = round($amount * $rate);
+            return number_format($khrAmount, 0) . ' ៛';
+        }
+
+        return '$' . number_format($amount, 2);
+    }
+
+    /**
+     * Get the numeric amount converted to the order's historical currency.
+     */
+    public function getCurrencyAmount(float|int|string|null $amount): float
+    {
+        $amount = (float) ($amount ?? 0);
+        $curr = strtoupper($this->currency ?: 'USD');
+
+        if ($curr === 'KHR') {
+            $rate = (float) ($this->exchange_rate ?: 4100.0);
+            return (float) round($amount * $rate);
+        }
+
+        return round($amount, 2);
+    }
+
+    public function getCurrencyFinalTotalAttribute(): float
+    {
+        return $this->getCurrencyAmount($this->final_total);
     }
 
     public function getFormattedFinalTotalAttribute(): string

@@ -13,6 +13,7 @@ class SaleDetail extends Model
     protected $fillable = [
         'sale_id',
         'product_id',
+        'bundle_id',
         'qty',
         'price',
         'discount',
@@ -37,5 +38,15 @@ class SaleDetail extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class)->withTrashed();
+    }
+
+    public function bundle(): BelongsTo
+    {
+        return $this->belongsTo(Bundle::class)->withTrashed();
+    }
+
+    public function getIsBundleAttribute(): bool
+    {
+        return $this->bundle_id !== null;
     }
 }

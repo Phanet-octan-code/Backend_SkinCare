@@ -18,15 +18,29 @@ class Product extends Model
         'category_id',
         'supplier_id',
         'name',
+        'name_km',
         'barcode',
         'cost_price',
         'sale_price',
         'qty',
         'image',
         'description',
+        'description_km',
         'low_stock_threshold',
         'status',
     ];
+
+    public function getLocalizedNameAttribute(): string
+    {
+        $locale = \Illuminate\Support\Facades\App::getLocale();
+        return ($locale === 'km' && !empty($this->name_km)) ? $this->name_km : $this->name;
+    }
+
+    public function getLocalizedDescriptionAttribute(): ?string
+    {
+        $locale = \Illuminate\Support\Facades\App::getLocale();
+        return ($locale === 'km' && !empty($this->description_km)) ? $this->description_km : $this->description;
+    }
 
     protected function casts(): array
     {
@@ -79,6 +93,23 @@ class Product extends Model
         return $this->hasMany(CustomerWishlist::class);
     }
 
+    public function bundleItems(): HasMany
+    {
+        return $this->hasMany(BundleItem::class);
+    }
+
+    public function bundles(): BelongsToMany
+    {
+        return $this->belongsToMany(Bundle::class, 'bundle_items')
+            ->withPivot(['quantity', 'is_free_gift'])
+            ->withTimestamps();
+    }
+
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
     public function getImageUrlAttribute(): string
     {
         if ($this->image) {
@@ -116,6 +147,11 @@ class Product extends Model
 
     public function getAverageRatingAttribute(): float
     {
+        if (array_key_exists('reviews_avg_rating', $this->attributes)) {
+            return $this->attributes['reviews_avg_rating'] !== null
+                ? (float) round((float) $this->attributes['reviews_avg_rating'], 1)
+                : 5.0;
+        }
         if (array_key_exists('average_rating', $this->attributes)) {
             return $this->attributes['average_rating'] !== null
                 ? (float) round((float) $this->attributes['average_rating'], 1)

@@ -12,7 +12,9 @@ class Category extends Model
 
     protected $fillable = [
         'name',
+        'name_km',
         'description',
+        'description_km',
         'image',
         'status',
     ];
@@ -73,6 +75,11 @@ class Category extends Model
     {
         $rawLocale = request()->header('Accept-Language', request()->query('lang', app()->getLocale()));
         $locale = strtolower(substr(trim($rawLocale), 0, 2));
+
+        if ($locale === 'km' && !empty($this->name_km)) {
+            return $this->name_km;
+        }
+
         if ($locale === 'en' || !in_array($locale, ['km', 'zh'])) {
             return $this->name;
         }
@@ -120,6 +127,13 @@ class Category extends Model
             ],
         ];
 
-        return $map[$this->name][$locale] ?? $this->name;
+        return $map[$this->name][$locale] ?? ($this->name_km ?: $this->name);
+    }
+
+    public function getLocalizedDescriptionAttribute(): ?string
+    {
+        $rawLocale = request()->header('Accept-Language', request()->query('lang', app()->getLocale()));
+        $locale = strtolower(substr(trim($rawLocale), 0, 2));
+        return ($locale === 'km' && !empty($this->description_km)) ? $this->description_km : $this->description;
     }
 }

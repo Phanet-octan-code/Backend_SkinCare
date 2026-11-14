@@ -9,12 +9,19 @@ class ProductReviewResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        $isVerifiedPurchase = false;
-        if ($this->customer_id && $this->product_id) {
-            $isVerifiedPurchase = \App\Models\SaleDetail::whereHas('sale', function ($q) {
-                $q->where('customer_id', $this->customer_id)
-                  ->where('status', '!=', 'cancelled');
-            })->where('product_id', $this->product_id)->exists();
+        $isVerifiedPurchase = $this->is_verified_purchase ?? null;
+        if ($isVerifiedPurchase === null) {
+            static $verifiedCache = [];
+            $cacheKey = "{$this->customer_id}_{$this->product_id}";
+            if (!array_key_exists($cacheKey, $verifiedCache)) {
+                $verifiedCache[$cacheKey] = ($this->customer_id && $this->product_id)
+                    ? \App\Models\SaleDetail::whereHas('sale', function ($q) {
+                        $q->where('customer_id', $this->customer_id)
+                          ->where('status', '!=', 'cancelled');
+                    })->where('product_id', $this->product_id)->exists()
+                    : false;
+            }
+            $isVerifiedPurchase = $verifiedCache[$cacheKey];
         }
 
         return [

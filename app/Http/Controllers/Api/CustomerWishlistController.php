@@ -19,6 +19,8 @@ class CustomerWishlistController extends Controller
         $products = $request->user()
             ->wishlistProducts()
             ->with(['category', 'promotions' => fn ($q) => $q->active()])
+            ->withCount('reviews')
+            ->withAvg('reviews', 'rating')
             ->get();
 
         return response()->json([

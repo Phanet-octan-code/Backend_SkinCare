@@ -27,12 +27,16 @@ class StorefrontCache
             Cache::put('storefront_catalog_version', time(), 86400 * 30);
         }
 
+        // Direct legacy keys fallback
+        Cache::forget('storefront_bootstrap');
         Cache::forget('storefront_categories');
         Cache::forget('storefront_brands');
         Cache::forget('storefront_promotions');
         Cache::forget('storefront_featured');
         Cache::forget('storefront_stats');
         Cache::forget('storefront_api_settings');
+        Cache::forget('storefront_flash_sales');
+        Cache::forget('storefront_bundles');
     }
 
     /**
@@ -41,13 +45,14 @@ class StorefrontCache
     public static function key(string $prefix, array $params = []): string
     {
         $v = self::version();
+        $locale = \Illuminate\Support\Facades\App::getLocale();
         if (empty($params)) {
-            return "{$prefix}_v{$v}";
+            return "{$prefix}_{$locale}_v{$v}";
         }
         // Normalize params for deterministic hashing
         ksort($params);
         $hash = md5(json_encode($params));
-        return "{$prefix}_v{$v}_{$hash}";
+        return "{$prefix}_{$locale}_v{$v}_{$hash}";
     }
 }
 
