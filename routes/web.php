@@ -2,19 +2,23 @@
 
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\BundleController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\LoyaltyAdminController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\PositionController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PromotionController;
+use App\Http\Controllers\RefundController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\SettingController;
+use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -57,6 +61,15 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/sales/{sale}', [SaleController::class, 'show'])->name('sales.show');
         Route::post('/sales/{sale}/cancel', [SaleController::class, 'cancel'])->name('sales.cancel');
         Route::post('/sales/{sale}/return', [SaleController::class, 'processReturn'])->name('sales.return');
+        Route::post('/sales/{sale}/refund', [RefundController::class, 'store'])->name('sales.refund');
+
+        // Skincare Replenishment Subscriptions (Admin, Manager, Cashier)
+        Route::get('/subscriptions', [SubscriptionController::class, 'index'])->name('subscriptions.index');
+        Route::get('/subscriptions/{subscription}', [SubscriptionController::class, 'show'])->name('subscriptions.show');
+        Route::post('/subscriptions/{subscription}/pause', [SubscriptionController::class, 'pause'])->name('subscriptions.pause');
+        Route::post('/subscriptions/{subscription}/resume', [SubscriptionController::class, 'resume'])->name('subscriptions.resume');
+        Route::post('/subscriptions/{subscription}/cancel', [SubscriptionController::class, 'cancel'])->name('subscriptions.cancel');
+        Route::post('/subscriptions/renew-batch', [SubscriptionController::class, 'triggerRenewals'])->name('subscriptions.renew');
 
         Route::get('/customers', [CustomerController::class, 'index'])->name('customers.index');
         Route::post('/customers', [CustomerController::class, 'store'])->name('customers.store');
@@ -91,6 +104,14 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::put('/promotions/{promotion}', [PromotionController::class, 'update'])->name('promotions.update');
         Route::patch('/promotions/{promotion}/toggle-status', [PromotionController::class, 'toggleStatus'])->name('promotions.toggle-status');
         Route::delete('/promotions/{promotion}', [PromotionController::class, 'destroy'])->name('promotions.destroy');
+
+        // Product Bundles & Gift Sets (Admin, Manager)
+        Route::resource('bundles', BundleController::class)->except(['show']);
+
+        // Loyalty Tiers & Referral Campaigns (Admin, Manager)
+        Route::get('/loyalty', [LoyaltyAdminController::class, 'index'])->name('loyalty.index');
+        Route::put('/loyalty/tiers/{tier}', [LoyaltyAdminController::class, 'updateTier'])->name('loyalty.tier.update');
+        Route::put('/loyalty/campaign', [LoyaltyAdminController::class, 'updateCampaign'])->name('loyalty.campaign.update');
     });
 
     // Inventory Management & Movements (Admin, Manager, Inventory)

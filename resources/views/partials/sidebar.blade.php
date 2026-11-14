@@ -50,6 +50,14 @@
                     <span class="nav-label">{{ __('messages.sales_history') }}</span>
                 </a>
             </li>
+            <li class="sidebar-menu-item">
+                <a href="{{ route('subscriptions.index') }}" 
+                   class="sidebar-link {{ request()->routeIs('subscriptions.*') ? 'active' : '' }}"
+                   data-bs-toggle="tooltip" data-bs-placement="right" title="Subscriptions">
+                    <i class="bi bi-arrow-repeat"></i>
+                    <span class="nav-label">Subscriptions</span>
+                </a>
+            </li>
             @endif
 
             <!-- 3. Catalog Management Group (Admin, Manager) -->
@@ -77,6 +85,22 @@
                    data-bs-toggle="tooltip" data-bs-placement="right" title="{{ __('messages.promotions_discounts') }}">
                     <i class="bi bi-percent"></i>
                     <span class="nav-label">{{ __('messages.promotions') }}</span>
+                </a>
+            </li>
+            <li class="sidebar-menu-item">
+                <a href="{{ route('bundles.index') }}" 
+                   class="sidebar-link {{ request()->routeIs('bundles.*') ? 'active' : '' }}"
+                   data-bs-toggle="tooltip" data-bs-placement="right" title="Bundles & Gift Sets">
+                    <i class="bi bi-gift"></i>
+                    <span class="nav-label">Bundles & Sets</span>
+                </a>
+            </li>
+            <li class="sidebar-menu-item">
+                <a href="{{ route('loyalty.index') }}" 
+                   class="sidebar-link {{ request()->routeIs('loyalty.*') ? 'active' : '' }}"
+                   data-bs-toggle="tooltip" data-bs-placement="right" title="Loyalty & Referrals">
+                    <i class="bi bi-stars"></i>
+                    <span class="nav-label">Loyalty & Rewards</span>
                 </a>
             </li>
             @endif

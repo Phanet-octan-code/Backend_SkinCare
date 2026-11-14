@@ -7,23 +7,24 @@ echo "[Render Startup] Configuring Nginx to listen on port ${TARGET_PORT}..."
 sed -i "s/listen 80;/listen ${TARGET_PORT};/g" /etc/nginx/http.d/default.conf
 
 # 2. Provide reliable production environment defaults
-ACTIVE_APP_NAME="${APP_NAME:-Élixir Botanique}"
+ACTIVE_APP_NAME="${APP_NAME:-Skinora Dispensary}"
 ACTIVE_APP_ENV="${APP_ENV:-production}"
-ACTIVE_APP_KEY="${APP_KEY:-base64:2q3DHGrkMArI5CTCycloL6Ir2zRkUZ8OXa4PQEqb+K8=}"
+ACTIVE_APP_KEY="${APP_KEY:-}"
 ACTIVE_APP_DEBUG="${APP_DEBUG:-false}"
 ACTIVE_APP_URL="${APP_URL:-http://localhost}"
 
 ACTIVE_DB_CONNECTION="${DB_CONNECTION:-pgsql}"
-ACTIVE_DB_HOST="${DB_HOST:-aws-0-ap-southeast-1.pooler.supabase.com}"
+ACTIVE_DB_HOST="${DB_HOST:-}"
 ACTIVE_DB_PORT="${DB_PORT:-6543}"
 ACTIVE_DB_DATABASE="${DB_DATABASE:-postgres}"
-ACTIVE_DB_USERNAME="${DB_USERNAME:-postgres.rsaxtgzmyzinvyuimthi}"
-ACTIVE_DB_PASSWORD="${DB_PASSWORD:-Skincare2026!}"
+ACTIVE_DB_USERNAME="${DB_USERNAME:-}"
+ACTIVE_DB_PASSWORD="${DB_PASSWORD:-}"
 ACTIVE_DB_SSLMODE="${DB_SSLMODE:-require}"
 
 ACTIVE_SESSION_DRIVER="${SESSION_DRIVER:-file}"
 ACTIVE_CACHE_STORE="${CACHE_STORE:-file}"
 ACTIVE_QUEUE_CONNECTION="${QUEUE_CONNECTION:-database}"
+ACTIVE_CORS_ORIGINS="${CORS_ALLOWED_ORIGINS:-*}"
 
 # 3. Write active configuration to /var/www/html/.env so PHP-FPM and Artisan have full access
 echo "[Render Startup] Writing /var/www/html/.env configuration..."
@@ -53,6 +54,8 @@ SESSION_LIFETIME=120
 
 CACHE_STORE="${ACTIVE_CACHE_STORE}"
 QUEUE_CONNECTION="${ACTIVE_QUEUE_CONNECTION}"
+
+CORS_ALLOWED_ORIGINS="${ACTIVE_CORS_ORIGINS}"
 EOF
 
 # 4. Ensure storage directories exist with proper write permissions

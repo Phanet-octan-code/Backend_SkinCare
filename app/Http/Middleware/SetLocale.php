@@ -16,19 +16,29 @@ class SetLocale
     {
         $allowedLocales = ['en', 'km', 'zh'];
 
-        // 1. Session first
-        $locale = session('locale');
+        // 1. Explicit query parameter (?lang=km or ?locale=km)
+        $queryLocale = strtolower((string) ($request->query('lang') ?? $request->query('locale') ?? ''));
+        if (in_array($queryLocale, $allowedLocales, true)) {
+            $locale = $queryLocale;
+            if ($request->hasSession()) {
+                session(['locale' => $locale]);
+            }
+        } else {
+            // 2. Session
+            $locale = $request->hasSession() ? session('locale') : null;
 
-        // 2. Cookie fallback
-        if (!$locale || !in_array($locale, $allowedLocales, true)) {
-            $locale = $request->cookie('app_locale');
-        }
+            // 3. Cookie fallback
+            if (!$locale || !in_array($locale, $allowedLocales, true)) {
+                $locale = $request->cookie('app_locale');
+            }
 
-        // 3. Header fallback (e.g. for API or AJAX)
-        if (!$locale || !in_array($locale, $allowedLocales, true)) {
-            $headerLocale = strtolower(substr($request->header('X-Locale', $request->header('Accept-Language', '')), 0, 2));
-            if (in_array($headerLocale, $allowedLocales, true)) {
-                $locale = $headerLocale;
+            // 4. Header fallback (e.g. X-Locale or Accept-Language)
+            if (!$locale || !in_array($locale, $allowedLocales, true)) {
+                $rawHeader = $request->header('X-Locale', $request->header('Accept-Language', ''));
+                $headerLocale = strtolower(substr($rawHeader, 0, 2));
+                if (in_array($headerLocale, $allowedLocales, true)) {
+                    $locale = $headerLocale;
+                }
             }
         }
 
