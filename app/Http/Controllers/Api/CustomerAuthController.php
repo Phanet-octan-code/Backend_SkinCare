@@ -51,6 +51,11 @@ class CustomerAuthController extends Controller
         // Generate Sanctum authentication token
         $token = $customer->createToken('customer_storefront_token')->plainTextToken;
 
+        // Memoize empty relations and stats for new customer to avoid queries
+        $customer->setRelation('addresses', collect([]));
+        $customer->sales_total_spent_cached = 0.0;
+        $customer->sales_completed_count_cached = 0;
+
         return response()->json([
             'success' => true,
             'message' => 'Your account has been created successfully. Welcome to SkinCare Boutique!',
@@ -86,6 +91,7 @@ class CustomerAuthController extends Controller
 
         // Issue token
         $token = $customer->createToken('customer_storefront_token')->plainTextToken;
+        $customer->loadMissing('addresses');
 
         return response()->json([
             'success' => true,
@@ -180,6 +186,7 @@ class CustomerAuthController extends Controller
         // Invalidate old tokens and issue fresh session token
         $customer->tokens()->delete();
         $newToken = $customer->createToken('customer_storefront_token')->plainTextToken;
+        $customer->loadMissing('addresses');
 
         return response()->json([
             'success' => true,
@@ -211,6 +218,7 @@ class CustomerAuthController extends Controller
     public function profile(Request $request): JsonResponse
     {
         $customer = $request->user();
+        $customer->loadMissing('addresses');
 
         return response()->json([
             'success' => true,
@@ -257,6 +265,7 @@ class CustomerAuthController extends Controller
         }
 
         $customer->save();
+        $customer->loadMissing('addresses');
 
         return response()->json([
             'success' => true,

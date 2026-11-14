@@ -130,13 +130,30 @@ class CartController extends Controller
             ], 400);
         }
 
-        foreach ($validated['items'] as $item) {
-            $attributes = $customer
-                ? ['customer_id' => $customer->id, 'product_id' => $item['product_id']]
-                : ['session_id' => $sessionId, 'product_id' => $item['product_id']];
+        \Illuminate\Support\Facades\DB::transaction(function () use ($customer, $sessionId, $validated) {
+            $baseWhere = $customer
+                ? ['customer_id' => $customer->id]
+                : ['session_id' => $sessionId];
 
-            CartItem::updateOrCreate($attributes, ['qty' => $item['qty']]);
-        }
+            // Batch replace cart state in 2 queries instead of 20 individual updateOrCreate queries
+            CartItem::where($baseWhere)->delete();
+
+            $now = now();
+            $rows = array_map(function ($item) use ($customer, $sessionId, $now) {
+                return [
+                    'customer_id' => $customer?->id,
+                    'session_id' => $customer ? null : $sessionId,
+                    'product_id' => $item['product_id'],
+                    'qty' => $item['qty'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }, $validated['items']);
+
+            if (!empty($rows)) {
+                CartItem::insert($rows);
+            }
+        });
 
         return $this->index($request);
     }

@@ -137,8 +137,22 @@ class EcommerceCheckoutService
             ];
         }
 
-        $activePromos = Promotion::active()->with('products')->get();
+        $activePromos = \Illuminate\Support\Facades\Cache::remember('active_promotions_with_products', 120, function () {
+            return Promotion::active()->with('products')->get();
+        });
         $memberRate = $customer ? (float) $customer->membership_discount_percentage : 0.0;
+
+        // Batch pre-fetch all products and bundles in 1 query each (eliminates N+1 queries)
+        $productIds = collect($items)->pluck('product_id')->filter()->unique()->all();
+        $bundleIds = collect($items)->pluck('bundle_id')->filter()->unique()->all();
+
+        $loadedProducts = !empty($productIds)
+            ? Product::whereIn('id', $productIds)->where('status', 'active')->get()->keyBy('id')
+            : collect();
+
+        $loadedBundles = !empty($bundleIds)
+            ? Bundle::with('items.product')->whereIn('id', $bundleIds)->where('status', 'active')->get()->keyBy('id')
+            : collect();
 
         $subtotal = 0.00;
         $totalPromoDiscount = 0.00;
@@ -151,9 +165,9 @@ class EcommerceCheckoutService
             $qty = max(1, (int) ($item['qty'] ?? 1));
 
             if ($bundleId > 0) {
-                // Quoting a Product Bundle / Gift Set
-                $bundle = Bundle::with('items.product')->find($bundleId);
-                if (!$bundle || $bundle->status !== 'active') {
+                // Quoting a Product Bundle / Gift Set (from pre-fetched map)
+                $bundle = $loadedBundles->get($bundleId);
+                if (!$bundle) {
                     continue;
                 }
 
@@ -192,9 +206,9 @@ class EcommerceCheckoutService
                     'promo_name' => null,
                 ];
             } elseif ($productId > 0) {
-                // Quoting an Individual Product
-                $product = Product::find($productId);
-                if (!$product || $product->status !== 'active') {
+                // Quoting an Individual Product (from pre-fetched map)
+                $product = $loadedProducts->get($productId);
+                if (!$product) {
                     continue;
                 }
 
@@ -406,21 +420,27 @@ class EcommerceCheckoutService
                 }
             }
 
-            // 2. Fetch Online Storefront Bot Cashier
-            $botUser = User::where('email', 'storefront@skincare.com')->first();
-            if (!$botUser) {
-                $botUser = User::firstOrCreate(
-                    ['email' => 'storefront@skincare.com'],
-                    [
-                        'name' => 'Online Storefront Bot',
-                        'password' => bcrypt(uniqid()),
-                        'role' => 'cashier',
-                        'status' => 'active',
-                    ]
-                );
+            // 2. Fetch Online Storefront Bot Cashier (Cached / Static)
+            static $cachedBotUser = null;
+            if (!$cachedBotUser) {
+                $cachedBotUser = User::where('email', 'storefront@skincare.com')->first();
+                if (!$cachedBotUser) {
+                    $cachedBotUser = User::firstOrCreate(
+                        ['email' => 'storefront@skincare.com'],
+                        [
+                            'name' => 'Online Storefront Bot',
+                            'password' => bcrypt(uniqid()),
+                            'role' => 'cashier',
+                            'status' => 'active',
+                        ]
+                    );
+                }
             }
+            $botUser = $cachedBotUser;
 
-            $activePromos = Promotion::active()->with('products')->get();
+            $activePromos = \Illuminate\Support\Facades\Cache::remember('active_promotions_with_products', 120, function () {
+            return Promotion::active()->with('products')->get();
+        });
             $memberRate = $resolvedCustomer ? (float) $resolvedCustomer->membership_discount_percentage : 0.0;
 
             $subtotal = 0.00;

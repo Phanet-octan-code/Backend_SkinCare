@@ -190,26 +190,44 @@ class Customer extends Authenticatable
         };
     }
 
+    public ?float $sales_total_spent_cached = null;
+    public ?int $sales_completed_count_cached = null;
+
     public function getTotalSpentAttribute(): float
     {
-        if (array_key_exists('total_spent', $this->attributes)) {
-            return (float) $this->attributes['total_spent'];
+        if ($this->sales_total_spent_cached !== null) {
+            return $this->sales_total_spent_cached;
         }
         if ($this->relationLoaded('sales')) {
             return (float) $this->sales->where('payment_status', 'paid')->sum('final_total');
         }
-        return (float) ($this->sales_total_spent_cached ??= (float) $this->sales()->where('payment_status', 'paid')->sum('final_total'));
+        $this->ensureSalesAggregatesLoaded();
+        return $this->sales_total_spent_cached ?? 0.0;
     }
 
     public function getCompletedSalesCountAttribute(): int
     {
-        if (array_key_exists('completed_sales_count', $this->attributes)) {
-            return (int) $this->attributes['completed_sales_count'];
+        if ($this->sales_completed_count_cached !== null) {
+            return $this->sales_completed_count_cached;
         }
         if ($this->relationLoaded('sales')) {
             return $this->sales->where('payment_status', 'paid')->count();
         }
-        return (int) ($this->sales_completed_count_cached ??= $this->sales()->where('payment_status', 'paid')->count());
+        $this->ensureSalesAggregatesLoaded();
+        return $this->sales_completed_count_cached ?? 0;
+    }
+
+    protected function ensureSalesAggregatesLoaded(): void
+    {
+        if ($this->sales_total_spent_cached === null || $this->sales_completed_count_cached === null) {
+            $agg = $this->sales()
+                ->where('payment_status', 'paid')
+                ->selectRaw('COALESCE(SUM(final_total), 0) as total_spent, COUNT(*) as completed_count')
+                ->first();
+
+            $this->sales_total_spent_cached = (float) ($agg?->total_spent ?? 0.0);
+            $this->sales_completed_count_cached = (int) ($agg?->completed_count ?? 0);
+        }
     }
 }
 

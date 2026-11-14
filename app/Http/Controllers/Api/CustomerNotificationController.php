@@ -41,11 +41,7 @@ class CustomerNotificationController extends Controller
     public function markAsRead(Request $request, string $id): JsonResponse
     {
         $customer = $request->user();
-        $notification = $customer->notifications()->where('id', $id)->first();
-
-        if ($notification) {
-            $notification->markAsRead();
-        }
+        $customer->unreadNotifications()->where('id', $id)->update(['read_at' => now()]);
 
         return response()->json([
             'success' => true,
@@ -60,7 +56,7 @@ class CustomerNotificationController extends Controller
     public function markAllAsRead(Request $request): JsonResponse
     {
         $customer = $request->user();
-        $customer->unreadNotifications->markAsRead();
+        $customer->unreadNotifications()->update(['read_at' => now()]);
 
         return response()->json([
             'success' => true,

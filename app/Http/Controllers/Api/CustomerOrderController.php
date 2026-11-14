@@ -20,7 +20,7 @@ class CustomerOrderController extends Controller
         $customer = $request->user();
 
         $orders = $customer->sales()
-            ->with(['details.product'])
+            ->with(['details.product', 'details.bundle', 'customer'])
             ->latest()
             ->paginate(10);
 
@@ -51,7 +51,7 @@ class CustomerOrderController extends Controller
             ], 403);
         }
 
-        $order->load(['details.product', 'customer']);
+        $order->load(['details.product', 'details.bundle', 'customer']);
 
         return response()->json([
             'success' => true,
@@ -72,7 +72,7 @@ class CustomerOrderController extends Controller
         $reference = trim($validated['reference']);
         $identifier = trim($validated['identifier']);
 
-        $order = Sale::with(['details.product', 'customer'])
+        $order = Sale::with(['details.product', 'details.bundle', 'customer'])
             ->where(function ($q) use ($reference) {
                 $q->where('invoice_number', $reference)
                   ->orWhere('tracking_number', $reference);

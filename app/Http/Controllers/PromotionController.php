@@ -19,6 +19,7 @@ class PromotionController extends Controller
         Cache::forget('pos_catalog_products');
         // Clear counts cache pattern
         Cache::forget('promotions_counts_' . Carbon::today()->toDateString());
+        \App\Services\StorefrontCache::bust();
     }
 
     /**

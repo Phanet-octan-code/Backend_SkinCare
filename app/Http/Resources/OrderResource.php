@@ -34,7 +34,9 @@ class OrderResource extends JsonResource
             'shipping_address' => $this->shipping_address,
             'tracking_number' => $this->tracking_number,
             'order_notes' => $this->order_notes,
-            'customer_name' => $this->customer ? $this->customer->name : 'Guest Customer',
+            'customer_name' => $this->relationLoaded('customer')
+                ? ($this->customer ? $this->customer->name : 'Guest Customer')
+                : ($request->user() && $request->user()->id === $this->customer_id ? $request->user()->name : ($this->customer ? $this->customer->name : 'Guest Customer')),
             'items' => OrderDetailResource::collection($this->whenLoaded('details')),
             'created_at' => $this->created_at?->toIso8601String(),
             'formatted_date' => $this->created_at?->format('M d, Y h:i A'),

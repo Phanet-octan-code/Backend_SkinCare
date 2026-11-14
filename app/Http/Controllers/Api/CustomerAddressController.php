@@ -7,6 +7,7 @@ use App\Http\Resources\CustomerAddressResource;
 use App\Models\CustomerAddress;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class CustomerAddressController extends Controller
 {
@@ -47,26 +48,29 @@ class CustomerAddressController extends Controller
             'is_default' => 'nullable|boolean',
         ]);
 
-        $isDefault = (bool) ($validated['is_default'] ?? false);
+        $address = DB::transaction(function () use ($customer, $validated) {
+            $isDefault = (bool) ($validated['is_default'] ?? false);
 
-        // If setting as default or if this is the customer's first address, reset others
-        if ($isDefault || $customer->addresses()->count() === 0) {
-            $isDefault = true;
-            $customer->addresses()->update(['is_default' => false]);
-        }
+            // Fast EXISTS check instead of full COUNT(*)
+            $hasExisting = $customer->addresses()->exists();
+            if ($isDefault || !$hasExisting) {
+                $isDefault = true;
+                $customer->addresses()->update(['is_default' => false]);
+            }
 
-        $address = $customer->addresses()->create([
-            'label' => $validated['label'] ?? 'Home',
-            'recipient_name' => $validated['recipient_name'],
-            'phone' => $validated['phone'],
-            'address_line1' => $validated['address_line1'],
-            'address_line2' => $validated['address_line2'] ?? null,
-            'city' => $validated['city'],
-            'state_province' => $validated['state_province'] ?? null,
-            'postal_code' => $validated['postal_code'] ?? null,
-            'country' => $validated['country'] ?? 'Cambodia',
-            'is_default' => $isDefault,
-        ]);
+            return $customer->addresses()->create([
+                'label' => $validated['label'] ?? 'Home',
+                'recipient_name' => $validated['recipient_name'],
+                'phone' => $validated['phone'],
+                'address_line1' => $validated['address_line1'],
+                'address_line2' => $validated['address_line2'] ?? null,
+                'city' => $validated['city'],
+                'state_province' => $validated['state_province'] ?? null,
+                'postal_code' => $validated['postal_code'] ?? null,
+                'country' => $validated['country'] ?? 'Cambodia',
+                'is_default' => $isDefault,
+            ]);
+        });
 
         return response()->json([
             'success' => true,
@@ -102,16 +106,17 @@ class CustomerAddressController extends Controller
             'is_default' => 'nullable|boolean',
         ]);
 
-        if (!empty($validated['is_default'])) {
-            $customer->addresses()->where('id', '!=', $address->id)->update(['is_default' => false]);
-        }
-
-        $address->update($validated);
+        DB::transaction(function () use ($customer, $address, $validated) {
+            if (!empty($validated['is_default'])) {
+                $customer->addresses()->where('id', '!=', $address->id)->update(['is_default' => false]);
+            }
+            $address->update($validated);
+        });
 
         return response()->json([
             'success' => true,
             'message' => 'Address updated successfully.',
-            'data' => new CustomerAddressResource($address),
+            'data' => new CustomerAddressResource($address->fresh()),
         ]);
     }
 
@@ -129,16 +134,18 @@ class CustomerAddressController extends Controller
             ], 403);
         }
 
-        $wasDefault = $address->is_default;
-        $address->delete();
+        DB::transaction(function () use ($customer, $address) {
+            $wasDefault = $address->is_default;
+            $address->delete();
 
-        // If default was deleted, assign another address as default
-        if ($wasDefault) {
-            $next = $customer->addresses()->first();
-            if ($next) {
-                $next->update(['is_default' => true]);
+            // If default was deleted, assign another address as default
+            if ($wasDefault) {
+                $next = $customer->addresses()->first();
+                if ($next) {
+                    $next->update(['is_default' => true]);
+                }
             }
-        }
+        });
 
         return response()->json([
             'success' => true,

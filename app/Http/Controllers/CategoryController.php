@@ -21,6 +21,7 @@ class CategoryController extends Controller
         Cache::forget('active_categories_list');
         Cache::forget('pos_catalog_products');
         Cache::forget('pos_terminal_catalog_bundle');
+        \App\Services\StorefrontCache::bust();
     }
 
     /**

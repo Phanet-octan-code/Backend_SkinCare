@@ -36,6 +36,7 @@ class ProductController extends Controller
         Cache::forget('inventory_valuation_summary');
         Cache::forget('topbar_low_stock_alerts');
         Cache::forget('active_products_compact');
+        \App\Services\StorefrontCache::bust();
     }
 
     /**

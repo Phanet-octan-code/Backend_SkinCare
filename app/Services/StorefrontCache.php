@@ -32,6 +32,9 @@ class StorefrontCache
         Cache::forget('storefront_categories');
         Cache::forget('storefront_brands');
         Cache::forget('storefront_promotions');
+        Cache::forget('active_promotions_with_products');
+        Cache::forget('loyalty:tiers:all');
+        Cache::forget('referral:active_campaign');
         Cache::forget('storefront_featured');
         Cache::forget('storefront_stats');
         Cache::forget('storefront_api_settings');
