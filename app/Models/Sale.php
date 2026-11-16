@@ -30,6 +30,20 @@ class Sale extends Model
     {
         static::saved(function () {
             \App\Services\StorefrontCache::bust();
+            try {
+                \Illuminate\Support\Facades\Cache::increment('dashboard_metrics_version');
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Cache::put('dashboard_metrics_version', time(), 86400 * 30);
+            }
+        });
+
+        static::deleted(function () {
+            \App\Services\StorefrontCache::bust();
+            try {
+                \Illuminate\Support\Facades\Cache::increment('dashboard_metrics_version');
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Cache::put('dashboard_metrics_version', time(), 86400 * 30);
+            }
         });
     }
 
@@ -119,7 +133,23 @@ class Sale extends Model
 
     public function scopeCompleted($query)
     {
-        return $query->where('status', 'completed');
+        return $this->scopeCompletedRevenue($query);
+    }
+
+    public function scopeCompletedRevenue($query)
+    {
+        return $query->where(function ($q) {
+            $q->where('status', self::STATUS_COMPLETED)
+              ->orWhere(function ($sub) {
+                  $sub->whereIn('status', [
+                      self::STATUS_CONFIRMED,
+                      self::STATUS_PROCESSING,
+                      self::STATUS_SHIPPED,
+                      self::STATUS_DELIVERED,
+                      self::STATUS_COMPLETED,
+                  ])->where('payment_status', self::PAYMENT_PAID);
+              });
+        })->whereNotIn('status', [self::STATUS_CANCELLED, self::STATUS_RETURNED]);
     }
 
     public function scopeToday($query)

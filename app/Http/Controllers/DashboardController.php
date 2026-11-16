@@ -79,13 +79,14 @@ class DashboardController extends Controller
         }
 
         // Base completed sales query scoped by role (cashier sees personal shift/sales, manager/admin store-wide)
-        $completedBase = Sale::where('status', 'completed');
+        $completedBase = Sale::completedRevenue();
         if ($isCashier) {
             $completedBase->where('user_id', $user->id);
         }
 
-        $cacheKey = "dashboard_metrics_{$user->id}_{$user->role}_{$period}_{$startDate->toDateString()}_{$endDate->toDateString()}";
-        $metrics = \Illuminate\Support\Facades\Cache::remember($cacheKey, 60, function () use (
+        $v = (int) \Illuminate\Support\Facades\Cache::get('dashboard_metrics_version', 1);
+        $cacheKey = "dashboard_metrics_v{$v}_{$user->id}_{$user->role}_{$period}_{$startDate->toDateString()}_{$endDate->toDateString()}";
+        $metrics = \Illuminate\Support\Facades\Cache::remember($cacheKey, 180, function () use (
             $completedBase, $today, $yesterday, $startDate, $endDate, $isCashier, $isAdmin, $isManager, $user
         ) {
             // ── 2. KPI 1: Today's Sales & Trend vs Yesterday ──
@@ -277,7 +278,7 @@ class DashboardController extends Controller
                     DB::raw('SUM(subtotal) as total_revenue')
                 )
                 ->whereHas('sale', function ($query) use ($isCashier, $user) {
-                    $query->where('status', 'completed');
+                    $query->completedRevenue();
                     if ($isCashier) {
                         $query->where('user_id', $user->id);
                     }
@@ -289,7 +290,7 @@ class DashboardController extends Controller
                 ->get();
 
             // ── 11. Recent Transactions ──
-            $recentSales = Sale::where('status', 'completed')
+            $recentSales = Sale::completedRevenue()
                 ->with(['user', 'customer'])
                 ->when($isCashier, fn($q) => $q->where('user_id', $user->id))
                 ->latest()

@@ -49,3 +49,4 @@ return new class extends Migration
         DB::statement('DROP INDEX IF EXISTS idx_sales_customer_created;');
     }
 };
+

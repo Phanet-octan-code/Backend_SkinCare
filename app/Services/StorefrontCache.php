@@ -23,8 +23,10 @@ class StorefrontCache
     {
         try {
             Cache::increment('storefront_catalog_version');
+            Cache::increment('dashboard_metrics_version');
         } catch (\Throwable $e) {
             Cache::put('storefront_catalog_version', time(), 86400 * 30);
+            Cache::put('dashboard_metrics_version', time(), 86400 * 30);
         }
 
         // Direct legacy keys fallback

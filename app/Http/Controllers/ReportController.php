@@ -34,7 +34,7 @@ class ReportController extends Controller
         // ─────────────────────────────────────────────────────────────
         // 1. SALES & FINANCIAL DATA
         // ─────────────────────────────────────────────────────────────
-        $completedSalesQuery = Sale::where('status', 'completed')
+        $completedSalesQuery = Sale::completedRevenue()
             ->whereBetween('created_at', [$start, $end]);
 
         if ($request->filled('cashier_id')) {
@@ -74,7 +74,7 @@ class ReportController extends Controller
         // Sales by Payment Method
         $paymentSummary = [];
         foreach (['cash' => 'Cash', 'card' => 'Card', 'qr' => 'QR Payment'] as $pKey => $pLabel) {
-            $pQuery = Sale::where('status', 'completed')
+            $pQuery = Sale::completedRevenue()
                 ->where('payment_type', $pKey)
                 ->whereBetween('created_at', [$start, $end]);
             $pTotal = (float) (clone $pQuery)->sum('final_total');
@@ -91,8 +91,8 @@ class ReportController extends Controller
         $cashierStats = User::whereIn('role', ['cashier', 'admin', 'manager'])
             ->get()
             ->map(function ($u) use ($start, $end) {
-                $q = Sale::where('user_id', $u->id)
-                    ->where('status', 'completed')
+                $q = Sale::completedRevenue()
+                    ->where('user_id', $u->id)
                     ->whereBetween('created_at', [$start, $end]);
                 return [
                     'user' => $u,
@@ -104,19 +104,19 @@ class ReportController extends Controller
             ->values();
 
         // Sales by Customer (Top VIPs)
-        $topCustomers = Customer::whereHas('sales', fn ($q) => $q->where('status', 'completed')->whereBetween('created_at', [$start, $end]))
-            ->withCount(['sales' => fn ($q) => $q->where('status', 'completed')->whereBetween('created_at', [$start, $end])])
-            ->withSum(['sales' => fn ($q) => $q->where('status', 'completed')->whereBetween('created_at', [$start, $end])], 'final_total')
+        $topCustomers = Customer::whereHas('sales', fn ($q) => $q->completedRevenue()->whereBetween('created_at', [$start, $end]))
+            ->withCount(['sales' => fn ($q) => $q->completedRevenue()->whereBetween('created_at', [$start, $end])])
+            ->withSum(['sales' => fn ($q) => $q->completedRevenue()->whereBetween('created_at', [$start, $end])], 'final_total')
             ->orderByDesc('sales_sum_final_total')
             ->limit(10)
             ->get();
 
         $guestSalesCount = Sale::whereNull('customer_id')
-            ->where('status', 'completed')
+            ->completedRevenue()
             ->whereBetween('created_at', [$start, $end])
             ->count();
         $guestSalesTotal = (float) Sale::whereNull('customer_id')
-            ->where('status', 'completed')
+            ->completedRevenue()
             ->whereBetween('created_at', [$start, $end])
             ->sum('final_total');
 
